@@ -1,0 +1,3 @@
+This is currently the 1st Testing-Version.
+The 4 main parts of the program can somewhat communicate.
+(Still need to fix server.py to send to the same socket with the same connect)
