@@ -1,12 +1,30 @@
-﻿import select, socket, ssl
+﻿import select, socket, Room, struct, commands
 
 """
 Globals
 """
-recv_buffer = {}
-send_buffer = {}
+with open("conn_info.txt", 'r') as file:
+    lines = file.readlines()
+    LISTEN_PORT = lines[1]
+    SEND_PORT = lines[2]
+    header = struct.Struct(lines[4])
+    file.close()
+recv_buffer = {}  # client --> str
+send_buffer = {}  # Room ---> str
 Server_Messages = []
-PORT_NUMBER = 1060
+Connected_Clients = {}  # socket ---> socket
+
+
+
+def Main(listener):
+    while True:  # probably add condition later
+        r, w, e = selectGenerator()
+        for sock in r:
+            if sock is listener:  # add new socket
+                inSock, address = listener.accept()
+                inSock.shutdown(socket.SHUT_WR)
+
+
 
 def createListenSocket():
     """
@@ -16,46 +34,37 @@ def createListenSocket():
     """
     raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    raw_socket.bind(('', PORT_NUMBER))
+    raw_socket.bind(('', LISTEN_PORT))
     raw_socket.listen(5)
     return raw_socket
     # more will be added to the ssl socket for security purposes
 
-def Main(listener):
-    inSock, sockname = listener.accept()
-    print("Connected to InputControl: ", str(sockname))
-    inSock.shutdown(socket.SHUT_WR)
-    outSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    outSock.connect(("192.168.1.132", 1065)) 
-    print("Connected to Output: ", outSock.getpeername())
-    outSock.shutdown(socket.SHUT_RD)
-    message = inSock.recv(4096).decode("ascii")
-    print("Received ", message)
-    sendMessage = ("Received " + message + " From " + str(sockname)).encode("ascii")
-    outSock.sendall(sendMessage)
-    outSock.close()
-    inSock.close()
+
+def inputHandler(byteInput):
+    contentArray = byteInput.decode("ascii")[header.size:].split(":`:")
+    if contentArray[0][0] == "`":
+        keyword = contentArray[0][1:]
+        args = contentArray[1:]
+        if keyword == "@@output":  #special command. "Private"ly used by _control to tell server
+                                    # where to send output.
+            return ['set', args]
 
 
 
-def modifyGlobals():
-    """
-    To be run at startup of server.
-    imports messages.txt, and maybe more.
-    might do away with method and just move to server main program.
-    """
-    global Server_Messages
+def selectGenerator():
+    while True:  #probably add a condition later.
+        for r, w, e in select.select(list(Connected_Clients.keys()), list(Connected_Clients.values()), []):
+            yield r, w, e
+
+
+if __name__ == "__main__":
     messageFile = open("Messages.txt", 'r')
     Server_Messages = messageFile.readlines()
     messageFile.close()
     for i in range(0, len(Server_Messages)):
         Server_Messages[i] = Server_Messages[i].replace('\n', '')
-
-
-
-if __name__ == "__main__":
-    #modifyGlobals()
     listSocket = createListenSocket()
-    while True:
-        Main(listSocket)
+    Connected_Clients[listSocket] = None  #if it doesn't like None(no fd), then set to itself, and check in
+                                            # other functions if equal to self
+    Main(listSocket)
 
