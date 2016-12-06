@@ -145,22 +145,24 @@ def LoadRooms():
 
 
 if __name__ == "__main__":
+    #
+    # try:
+    #     newRoom = Room("room3", False, "ME", False)
+    # except FileExistsError:
+    #     print("Name Taken.")
+    #
+    # newRoom.setOwner("Nick", "ME")
+    # newRoom.addAdmin("Scott", "Nick")
+    # newRoom.addMember("Barry", "Nick")
+    # newRoom.addMember("Wally", "Scott")
+    # try:
+    #     newRoom.addMember("Oliver", "Barry")
+    # except PermissionError:
+    #     print("User doesn't have permission.")
+    # newRoom.setPermission(True, "Nick")
+    # newRoom.addMember("Oliver", "Barry")
+    # Rooms = LoadRooms()
+    # for elem in Rooms:
+    #     print(elem)
 
-    try:
-        newRoom = Room("room3", False, "ME", False)
-    except FileExistsError:
-        print("Name Taken.")
-
-    newRoom.setOwner("Nick", "ME")
-    newRoom.addAdmin("Scott", "Nick")
-    newRoom.addMember("Barry", "Nick")
-    newRoom.addMember("Wally", "Scott")
-    try:
-        newRoom.addMember("Oliver", "Barry")
-    except PermissionError:
-        print("User doesn't have permission.")
-    newRoom.setPermission(True, "Nick")
-    newRoom.addMember("Oliver", "Barry")
-    Rooms = LoadRooms()
-    for elem in Rooms:
-        print(elem)
+    Broadcast = Room("@@broadcast@@", True, "@@server", False)
