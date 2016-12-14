@@ -4,14 +4,17 @@ server ---> client_output
 """
 import socket
 
+toBool = {"False": False, "True": True}
+
+
 def isDone():
     with open("conn_info.txt", 'r+') as file:
-        value = file.readlines[3].replace('\n', '')
+        value = file.readlines()[3].replace('\n', '')
         file.close()
-    return bool(value)
+       # print(value)
+    return toBool[value]
 
 def Listen():
-    print("Starting Program")
     with open("conn_info.txt", 'r') as file:
         lines = file.readlines()
         IP = lines[0]
@@ -24,12 +27,20 @@ def Listen():
     recv_sock, sockname = raw_socket.accept()
     print("Connected to Server: ", sockname)
     recv_sock.shutdown(socket.SHUT_WR)
+    print(raw_socket.gettimeout())
+   # x =1
     while not isDone():
-        message = recv_sock.recv(4096)  # figure out correct byte value
+    #    print("In Here", x)
+     #   x+= 1
+        try:
+            message = recv_sock.recv(4096)  # figure out correct byte value
+        except TimeoutError:
+            break # Handle error later
         if message:
             print(message.decode('ascii'))
     recv_sock.close()
     raw_socket.close()
 
 if __name__ == "__main__":
+    print("__ouptput")
     Listen()
