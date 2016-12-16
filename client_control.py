@@ -44,7 +44,8 @@ def sendNextMessage(sock):
             file.close()
         header = struct.Struct(formatCharacter)
         ##Need to add which room
-        message += ":`:@@broadcast@@" #Temporary. will add dynamic room stuff later.
+       # message += ":`:@@broadcast@@" #Temporary. will add dynamic room stuff later.
+        # ^ Rooms now handled by server.
         message = header.pack(len(message)) + message.encode("ascii")
         sock.sendall(message)
         print("Sent ", message, "to", sock)

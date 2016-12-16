@@ -2,9 +2,11 @@ Welcome
 [0] Login using Existing Account
 [1] Create New Account
 Enter Username:
+Enter a Username:
 Enter Password:
 Confirm Password:
-Connected to Server,
+Connected to Server!
 Username not Recognized
 Please Try Again Later
 Password not Correct
+Invalid Response

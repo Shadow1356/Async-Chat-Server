@@ -22,12 +22,14 @@ def Listen():
         file.close()
     raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    raw_socket.bind(('', int(port)))  # keep for now, might bind to external address????
+    raw_socket.bind(('', int(port)))
     raw_socket.listen(5)
     recv_sock, sockname = raw_socket.accept()
+    recv_sock.shutdown(socket.SHUT_WR)
     print("Connected to Server: ", sockname)
     recv_sock.shutdown(socket.SHUT_WR)
-    print(raw_socket.gettimeout())
+    print(recv_sock.gettimeout())
+    recv_sock.settimeout(500.0)
    # x =1
     while not isDone():
     #    print("In Here", x)
