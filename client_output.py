@@ -28,8 +28,8 @@ def Listen():
     recv_sock.shutdown(socket.SHUT_WR)
     print("Connected to Server: ", sockname)
     recv_sock.shutdown(socket.SHUT_WR)
+    recv_sock.settimeout(5000.0)
     print(recv_sock.gettimeout())
-    recv_sock.settimeout(500.0)
    # x =1
     while not isDone():
     #    print("In Here", x)

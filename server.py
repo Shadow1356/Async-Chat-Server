@@ -1,4 +1,4 @@
-﻿import select, socket, Room, struct, commands
+﻿import select, socket, Room, struct, commands, miscellaneous
 
 """
 Globals
@@ -133,11 +133,11 @@ def loadSendBuffer(ID):
             try:
                 choice = int(recv_buffer[ID][1])
             except ValueError:
-                sendStr = Server_Messages[10]  # "Invalid Response"
+                sendStr = Server_Messages[11]  # "Invalid Response"
             else:
                 print("Choice = ", choice)
                 if not choice in [0, 1]:
-                    sendStr = Server_Messages[10]
+                    sendStr = Server_Messages[11]
                 else:
                     sendStr = Server_Messages[choice+3] # 3 if 0, 4 if 1.
                     Connected_Clients[ID][2][1] += choice + 1
@@ -162,7 +162,25 @@ def loadSendBuffer(ID):
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
 
         elif Connected_Clients[ID][2][1] == 3: #Create New User
-            pass
+            # user should be giving a new username
+            name = recv_buffer[ID][1]
+            with open("users.txt", 'r') as file:
+                lines = file.readlines()
+                file.close()
+            found = False
+            for l in lines:
+                found = name == l.partition(":")[0]
+                if found: break
+            del lines
+            if found:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[12]
+            else:
+                Connected_Clients[ID][2][1] = 5
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[13]
+                with open("users.txt", 'a') as file:
+                    file.write("\n" + name)
+                    file.close()
+                Connected_Clients[ID][1] = name
         elif Connected_Clients[ID][2][1] == 4: # get existing password
             #security stinks right now, clean up and make it "secure"
             password = recv_buffer[ID][1]
@@ -180,15 +198,40 @@ def loadSendBuffer(ID):
                 Connected_Clients[ID][2][0] = True
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[10] #Add counter later for limited number of attempts.
+        elif Connected_Clients[ID][2][1] == 5: #Create a new password.
+            password = recv_buffer[ID][1]
+            formatPassword = Connected_Clients[ID][1] + ":" + password
+            miscellaneous.findAndReplace("users.txt", formatPassword, Connected_Clients[ID][1])
+            Connected_Clients[ID][2][1] = 6
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[6]
+        elif Connected_Clients[ID][2][1] == 6: #Confirm the new password
+            password = recv_buffer[ID][1]
+            with open("users.txt", 'r') as file:
+                lines = file.readlines()
+                file.close()
+            fullUser = ()
+            for l in lines:
+                fullUser = l.partition(":")
+                if Connected_Clients[ID][1] == fullUser[0]:
+                    break
+            del lines
+            print("Password = ", password)
+            print("checking against = ", fullUser[2].replace("\n", ""))
+            if password == fullUser[2].replace("\n", ""): #password matches, user fully authenticated.
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[14] + '\n' + Server_Messages[7]
+                Connected_Clients[ID][2][0] = True
+            else:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[15] #Add timeout.
+            miscellaneous.cleanNewLines("users.txt")
 
     else:
         doNext = inputHandler(recv_buffer[ID][1])  # temporary???? Function returns an array.
         if doNext[0] == "message":  # not a command. user is chatting.
             fullText = ":" + Connected_Clients[ID][1] + ": " + doNext[1]
-            for client in send_buffer:
-                send_buffer[client] = fullText
+            for outClient in send_buffer:
+                send_buffer[outClient] = fullText
             print("Send Buffer: \n ", send_buffer)
-    recv_buffer[ID] = None  # empty the buffer. being transfered to send buffer
+    recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
 
 if __name__ == "__main__":
@@ -199,7 +242,7 @@ if __name__ == "__main__":
         Server_Messages[i] = Server_Messages[i].replace('\n', '')
     RoomList = Room.LoadRooms()
     listSocket = createListenSocket()
-    Connected_Clients[listSocket] = [None, "@@server", [True, 0]]
+    Connected_Clients[listSocket] = [None, "@@server", [False, 0]]
     try:
         Main(listSocket)
     except ConnectionError as error:

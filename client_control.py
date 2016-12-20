@@ -64,4 +64,5 @@ if __name__ == "__main__":
         exitCode = sendNextMessage(listener)
     print('loop has exited')
     miscellaneous.replaceLine("conn_info.txt", 4, "True")  # output is done. It can close
+    miscellaneous.cleanNewLines("conn_info.txt")
     input()
