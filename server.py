@@ -24,9 +24,18 @@ def Main(listener):
             if sock is listener:  # add new socket
                 inSock, address = listener.accept()
                 inSock.shutdown(socket.SHUT_WR)
+                inSock.setblocking(0.0)
                 outSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-              ###  outSock.setblocking(0)
                 outSock.connect((address[0], SEND_PORT))
+                #outSock.setblocking(0)
+                # while True:
+                #     try:
+                #         outSock.connect((address[0], SEND_PORT))
+                #     except BlockingIOError:
+                #         continue
+                #     else:
+                #         break
+                ###Since recv_sock is not blocking in __output, outSock should be okay.
                 Connected_Clients[inSock] = [outSock, "", [False, 1], "@@broadcast@@"]
                                                                 # add dynamic room stuff later
                 recv_buffer[inSock] = None
@@ -34,11 +43,11 @@ def Main(listener):
                 send_buffer[outSock] = sendStr
             else: #receive from socket
                 try:
-                    fullStr = sock.recv(1024)
+                    fullStr = sock.recv(1024) #possible timeout error.
                     pass
-                except socket.error:
+                except socket.error as error:
                     outSock = Connected_Clients.pop(sock)
-
+                    print("error was: ", error)
                     recv_buffer.pop(sock)
                     print("popping in error catch")
                     send_buffer.pop(outSock[0])
@@ -228,8 +237,9 @@ def loadSendBuffer(ID):
         doNext = inputHandler(recv_buffer[ID][1])  # temporary???? Function returns an array.
         if doNext[0] == "message":  # not a command. user is chatting.
             fullText = ":" + Connected_Clients[ID][1] + ": " + doNext[1]
-            for outClient in send_buffer:
-                send_buffer[outClient] = fullText
+            for inClient in Connected_Clients:
+                if Connected_Clients[inClient][2][0]: #check if user is validated, before sending output.
+                    send_buffer[Connected_Clients[inClient][0]] = fullText
             print("Send Buffer: \n ", send_buffer)
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
