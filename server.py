@@ -109,19 +109,6 @@ def createListenSocket():
     # more will be added to the ssl socket for security purposes
 
 
-def inputHandler(strInput): # returns an array
-    contentArray = strInput.split(":`:")
-    if contentArray[0][0] == "`":
-        keyword = contentArray[0][1:]
-        args = contentArray[1:]
-
-
-    else:
-        contentArray.insert(0, "message")
-        return contentArray
-
-
-
 def selectGenerator():
     while True:  #probably add a condition later.
         inputSockets = list(Connected_Clients.keys())
@@ -234,9 +221,31 @@ def loadSendBuffer(ID):
             miscellaneous.cleanNewLines("users.txt")
 
     else:
-        doNext = inputHandler(recv_buffer[ID][1])  # temporary???? Function returns an array.
-        if doNext[0] == "message":  # not a command. user is chatting.
-            fullText = ":" + Connected_Clients[ID][1] + ": " + doNext[1]
+        contentArray = recv_buffer[ID][1].split(":`:")
+        if contentArray[0][0] == "`":
+            Command = contentArray[0][1:].split(" ")
+            keyword = Command[0]
+            print("Keyword = ", keyword)
+            args = Command[1:]
+            print("args = ", args, len(args))
+            print("Before: ", Connected_Clients[ID])
+            doNext = commands.str_to_function[keyword](args, Connected_Clients[ID])
+            #commands.py functions return [bool, str]; 0: if waiting for more input, 1: put into
+                                                                            #send buffer
+            if doNext[0]: #function is wating for input
+                Connected_Clients[ID][2][1] = commands.str_to_int[keyword]
+            else:
+                print("After: ", Connected_Clients[ID])
+                Connected_Clients[ID][2][1] = -1
+            send_buffer[Connected_Clients[ID][0]] = doNext[1]
+        elif Connected_Clients[ID][2][1] >6:
+            args = recv_buffer[ID][1].split(" ")
+            doNext = commands.int_to_function[Connected_Clients[ID][2][1]](args, Connected_Clients[ID])
+            if not doNext[0]:
+                Connected_Clients[ID][2][1] = -1
+            send_buffer[Connected_Clients[ID][0]] = doNext[1]
+        else: # not a command. user is chatting.
+            fullText = ":" + Connected_Clients[ID][1] + ": " + contentArray[0]
             for inClient in Connected_Clients:
                 if Connected_Clients[inClient][2][0]: #check if user is validated, before sending output.
                     send_buffer[Connected_Clients[inClient][0]] = fullText

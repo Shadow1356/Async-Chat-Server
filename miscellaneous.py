@@ -1,7 +1,6 @@
 """
 Miscellaneous module containing useful functions
 not really belonging to one aspect of the program.
-I don't really know what I'm doing.
 """
 
 def replaceLine(path, line, string): #replaces the line-th line with string in file:path (line : 1,2,3)
@@ -18,6 +17,7 @@ def findAndReplace(path, replace, old):#locates old and replaces it with replace
     Lines = readFile.readlines()
     for i in range(len(Lines)):
         if old == Lines[i].replace('\n', ''):
+            print("REPLACING")
             Lines[i] = replace+"\n"
     readFile.seek(0)
     for elem in Lines:
