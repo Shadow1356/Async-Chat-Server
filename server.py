@@ -13,10 +13,11 @@ recv_buffer = {}  # socket ---> str
 send_buffer = {}  # socket ---> str
 Server_Messages = []
 Connected_Clients = {}  # socket ---> [socket, str]
-
+Rooms = {} #Room.roomName --> Room
 
 
 def Main(listener):
+    Broadcast = Rooms["@@broadcast@@"]
     while True:  # probably add condition later
         r, w, e = next(selectGenerator())
 
@@ -36,7 +37,7 @@ def Main(listener):
                 #     else:
                 #         break
                 ###Since recv_sock is not blocking in __output, outSock should be okay.
-                Connected_Clients[inSock] = [outSock, "", [False, 1], "@@broadcast@@"]
+                Connected_Clients[inSock] = [outSock, "", [False, 1], [Broadcast]]
                                                                 # add dynamic room stuff later
                 recv_buffer[inSock] = None
                 sendStr = Server_Messages[0] + "\n" + Server_Messages[1] + "\n"+ Server_Messages[2]
@@ -122,12 +123,13 @@ def selectGenerator():
         yield r, w, e
 
 def loadSendBuffer(ID):
+    contentArray = recv_buffer[ID][1].split(":`:")
     if not Connected_Clients[ID][2][0]: #not yet authenticated.
         if Connected_Clients[ID][2][1] == 0: # send pre-loaded menu screen to user.
             Connected_Clients[ID][2][1] = 1
         elif Connected_Clients[ID][2][1] == 1: #reply should be 0 or 1, send appropriate response.
             try:
-                choice = int(recv_buffer[ID][1])
+                choice = int(contentArray[0])
             except ValueError:
                 sendStr = Server_Messages[11]  # "Invalid Response"
             else:
@@ -141,7 +143,7 @@ def loadSendBuffer(ID):
 
         elif Connected_Clients[ID][2][1] == 2: #Log in existing user
             # user should be giving us their username
-            name = recv_buffer[ID][1]
+            name = contentArray[0]
             with open("users.txt", 'r') as file:
                 lines = file.readlines()
                 file.close()
@@ -159,7 +161,7 @@ def loadSendBuffer(ID):
 
         elif Connected_Clients[ID][2][1] == 3: #Create New User
             # user should be giving a new username
-            name = recv_buffer[ID][1]
+            name = contentArray[0]
             with open("users.txt", 'r') as file:
                 lines = file.readlines()
                 file.close()
@@ -179,7 +181,7 @@ def loadSendBuffer(ID):
                 Connected_Clients[ID][1] = name
         elif Connected_Clients[ID][2][1] == 4: # get existing password
             #security stinks right now, clean up and make it "secure"
-            password = recv_buffer[ID][1]
+            password = contentArray[0]
             with open("users.txt", 'r') as file:
                 lines = file.readlines()
                 file.close()
@@ -192,16 +194,20 @@ def loadSendBuffer(ID):
             if password == fullUser[2].replace("\n", ""): #password correct, user fully authenticated.
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[7]
                 Connected_Clients[ID][2][0] = True
+                for room in Rooms: #Load the rooms that the user is in.
+                    if Connected_Clients[ID][1] in Rooms[room].Members:
+                        print(Rooms[room])
+                        Connected_Clients[ID][3].append(Rooms[room])
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[10] #Add counter later for limited number of attempts.
         elif Connected_Clients[ID][2][1] == 5: #Create a new password.
-            password = recv_buffer[ID][1]
+            password = contentArray[0]
             formatPassword = Connected_Clients[ID][1] + ":" + password
             miscellaneous.findAndReplace("users.txt", formatPassword, Connected_Clients[ID][1])
             Connected_Clients[ID][2][1] = 6
             send_buffer[Connected_Clients[ID][0]] = Server_Messages[6]
         elif Connected_Clients[ID][2][1] == 6: #Confirm the new password
-            password = recv_buffer[ID][1]
+            password = contentArray[0]
             with open("users.txt", 'r') as file:
                 lines = file.readlines()
                 file.close()
@@ -216,13 +222,16 @@ def loadSendBuffer(ID):
             if password == fullUser[2].replace("\n", ""): #password matches, user fully authenticated.
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[14] + '\n' + Server_Messages[7]
                 Connected_Clients[ID][2][0] = True
+
+                Connected_Clients[ID][3][0].addMember(Connected_Clients[ID][1], "@@server")
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[15] #Add timeout.
             miscellaneous.cleanNewLines("users.txt")
 
     else:
-        contentArray = recv_buffer[ID][1].split(":`:")
-        if contentArray[0][0] == "`":
+        if not contentArray[0]: #no message from user. user just changing room or something. REVISIT
+            pass #just empty the recv_buffer
+        elif contentArray[0][0] == "`":
             Command = contentArray[0][1:].split(" ")
             keyword = Command[0]
             print("Keyword = ", keyword)
@@ -239,16 +248,23 @@ def loadSendBuffer(ID):
                 Connected_Clients[ID][2][1] = -1
             send_buffer[Connected_Clients[ID][0]] = doNext[1]
         elif Connected_Clients[ID][2][1] >6:
-            args = recv_buffer[ID][1].split(" ")
+            args = contentArray[0].split(" ")
             doNext = commands.int_to_function[Connected_Clients[ID][2][1]](args, Connected_Clients[ID])
             if not doNext[0]:
                 Connected_Clients[ID][2][1] = -1
             send_buffer[Connected_Clients[ID][0]] = doNext[1]
         else: # not a command. user is chatting.
-            fullText = ":" + Connected_Clients[ID][1] + ": " + contentArray[0]
-            for inClient in Connected_Clients:
-                if Connected_Clients[inClient][2][0]: #check if user is validated, before sending output.
-                    send_buffer[Connected_Clients[inClient][0]] = fullText
+            #validate room first
+            if not contentArray[1] in Rooms: #room doesn't exist
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            elif not Connected_Clients[ID][1] in Rooms[contentArray[1]].Members: #user not in room
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[19]
+            else:
+                fullText = contentArray[1] + ":" + Connected_Clients[ID][1] + ": " + contentArray[0]
+                for inClient in Connected_Clients:
+                    # check if user is validated and in the room, before sending output.
+                    if Connected_Clients[inClient][2][0] and Rooms[contentArray[1]] in Connected_Clients[inClient][3]:
+                        send_buffer[Connected_Clients[inClient][0]] = fullText
             print("Send Buffer: \n ", send_buffer)
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
@@ -259,7 +275,7 @@ if __name__ == "__main__":
     messageFile.close()
     for i in range(0, len(Server_Messages)):
         Server_Messages[i] = Server_Messages[i].replace('\n', '')
-    RoomList = Room.LoadRooms()
+    Rooms = Room.LoadRooms()
     listSocket = createListenSocket()
     Connected_Clients[listSocket] = [None, "@@server", [False, 0]]
     try:

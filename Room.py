@@ -91,7 +91,9 @@ class Room(object):
 
 
 def LoadRooms():
-    """Returns array of Room Objects from the RoomDir Folder"""
+    """Returns dict of Room Objects from the RoomDir Folder
+        Room.roomName : Room Object
+    """
     if platform.system() == "Windows":
         Path = os.getcwd() + "\\RoomDir\\"
     else:
@@ -99,7 +101,7 @@ def LoadRooms():
     indexPath = Path + "__index__.txt"
     indexFile = open(indexPath, 'r')
     RoomsList = indexFile.readlines()
-    Rooms = []
+    Rooms = {}
     for elem in RoomsList:
         name = elem.replace("\n", "")
         roomFilePath = Path + name + ".txt"
@@ -140,17 +142,17 @@ def LoadRooms():
 
         newRoom.Members = deepcopy(members)
         newRoom.Admins = deepcopy(admins)
-        Rooms.append(newRoom)
+        Rooms[newRoom.roomName] = newRoom
     return Rooms
 
 
 if __name__ == "__main__":
-    #
-    # try:
-    #     newRoom = Room("room3", False, "ME", False)
-    # except FileExistsError:
-    #     print("Name Taken.")
-    #
+    pass
+    try:
+        newRoom = Room("room3", False, "@@server", False)
+    except FileExistsError:
+        print("Name Taken.")
+    newRoom.addMember("Nick", "@@server")
     # newRoom.setOwner("Nick", "ME")
     # newRoom.addAdmin("Scott", "Nick")
     # newRoom.addMember("Barry", "Nick")
@@ -165,4 +167,4 @@ if __name__ == "__main__":
     # for elem in Rooms:
     #     print(elem)
 
-    Broadcast = Room("@@broadcast@@", True, "@@server", False)
+   # Broadcast = Room("@@broadcast@@", True, "@@server", False)
