@@ -16,3 +16,6 @@ New User Created
 Password does not match.
 Username changed to
 Password changed.
+Unrecognized Room.
+You are not in this Room.
+Access Denied.
