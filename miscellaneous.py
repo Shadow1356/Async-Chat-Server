@@ -19,10 +19,11 @@ def findAndReplace(path, replace, old):#locates old and replaces it with replace
         if old == Lines[i].replace('\n', ''):
             print("REPLACING")
             Lines[i] = replace+"\n"
-    readFile.seek(0)
-    for elem in Lines:
-        readFile.write(elem)
     readFile.close()
+    writeFile = open(path, "w")
+    for elem in Lines:
+        writeFile.write(elem)
+    writeFile.close()
 
 def addToLine(path, line, string):#adds a new line (string) at line
     readFile = open(path, 'r+')
