@@ -25,9 +25,6 @@ def connectToServer():
     return sock
 
 
-
-
-
 def sendNextMessage(sock):
     global __dirPath, currentRoom
     dirContents = os.listdir(__dirPath)

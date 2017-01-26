@@ -23,3 +23,8 @@ Enter a Name:
 Is Room Public or Private:
 Name Taken. Choose another.
 Room Created.
+Welcome to Room:
+Already in Broadcast State
+Whispering
+....
+Talking

@@ -11,19 +11,37 @@ def replaceLine(path, line, string): #replaces the line-th line with string in f
     for elem in Lines:
         readFile.write(elem)
     readFile.close()
+    cleanNewLines(path)
 
 def findAndReplace(path, replace, old):#locates old and replaces it with replace
     readFile = open(path, 'r+')
     Lines = readFile.readlines()
     for i in range(len(Lines)):
-        if old == Lines[i].replace('\n', ''):
+        if old in Lines[i].replace('\n', ''):
             print("REPLACING")
-            Lines[i] = replace+"\n"
+            newStr = Lines[i].replace(old, replace)
+            Lines[i] = newStr
     readFile.close()
     writeFile = open(path, "w")
     for elem in Lines:
         writeFile.write(elem)
     writeFile.close()
+    cleanNewLines(path)
+
+def findAndReplaceLine(path, replace, old):
+    readFile = open(path, 'r+')
+    Lines = readFile.readlines()
+    for i in range(len(Lines)):
+        if old == Lines[i].replace('\n', ''):
+            print("REPLACING")
+            newStr = Lines[i].replace(old, replace)
+            Lines[i] = newStr
+    readFile.close()
+    writeFile = open(path, "w")
+    for elem in Lines:
+        writeFile.write(elem)
+    writeFile.close()
+    cleanNewLines(path)
 
 def addToLine(path, line, string):#adds a new line (string) at line
     readFile = open(path, 'r+')
@@ -33,6 +51,7 @@ def addToLine(path, line, string):#adds a new line (string) at line
     for elem in Lines:
         readFile.write(elem)
     readFile.close()
+    cleanNewLines(path)
 
 def cleanNewLines(path): #gets rid of empty lines in path. (side effect of these functions)
     readFile = open(path, 'r')

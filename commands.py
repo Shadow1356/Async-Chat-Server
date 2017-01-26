@@ -1,5 +1,8 @@
 """
 Module for the commands the user can invoke in the chat.
+
+
+DO NOT NEED AT THIS TIME
 """
 import miscellaneous, Room
 messageFile = open("Messages.txt", 'r')
