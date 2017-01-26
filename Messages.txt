@@ -29,3 +29,4 @@ Whispering
 ....
 Talking
 Command Not Recognized.
+Already in Room.

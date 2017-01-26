@@ -46,14 +46,28 @@ def Main(listener):
             else: #receive from socket
                 try:
                     fullStr = sock.recv(1024) #possible timeout error.
-                    pass
-                except socket.error as error:
+                    if recv_buffer[sock]:  # data already exists in buffer.
+                        recv_buffer[sock][1] += fullStr.decode('ascii')
+                        if len(recv_buffer[sock][1]) == recv_buffer[sock][0]:
+                            loadSendBuffer(sock)
+                        else:
+                            print("Message not done")
+                    else:  # first part of transmission. get byte size and rest of chunk.
+                        print("MESSAGE = ", fullStr)
+                        sizeOfMessage = header.unpack(fullStr[0:header.size])[0]
+                        recv_buffer[sock] = (sizeOfMessage, fullStr[header.size:].decode('ascii'))
+                        if len(recv_buffer[sock][1]) == recv_buffer[sock][0]:
+                            loadSendBuffer(sock)
+                        else:
+                            print("Message not done")
+                except (socket.error, struct.error) as error:
                     outSock = Connected_Clients.pop(sock)
                     try:
                         del user_cache[sock]
                     except KeyError:
                         pass  # user not logged in and cache not created yet.
                     print("error was: ", error)
+                    print(sock)
                     recv_buffer.pop(sock)
                     print("popping in error catch")
                     send_buffer.pop(outSock[0])
@@ -61,21 +75,6 @@ def Main(listener):
                     sock.close()
                     continue
 
-                if recv_buffer[sock]: #data already exists in buffer.
-                    recv_buffer[sock][1] += fullStr.decode('ascii')
-                    if len(recv_buffer[sock][1]) == recv_buffer[sock][0]:
-                        loadSendBuffer(sock)
-                    else:
-                        print("Message not done")
-                    pass
-                else: #first part of transmission. get byte size and rest of chunk.
-                    sizeOfMessage = header.unpack(fullStr[0:header.size])[0]
-                    recv_buffer[sock] = (sizeOfMessage, fullStr[header.size:].decode('ascii'))
-                    if len(recv_buffer[sock][1]) == recv_buffer[sock][0]:
-                        loadSendBuffer(sock)
-                    else:
-                        print("Message not done")
-                    pass
         for sock in w:
             try:
                 if send_buffer[sock]:
@@ -207,7 +206,6 @@ def loadSendBuffer(ID):
                     if Connected_Clients[ID][1] in Rooms[room].Members:
                         print(Rooms[room])
                         Connected_Clients[ID][3].append(Rooms[room])
-                        pass
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[10] #Add counter later for limited number of attempts.
         elif Connected_Clients[ID][2][1] == 5: #Create a new password.
@@ -248,7 +246,7 @@ def loadSendBuffer(ID):
             args = Command[1:]
             print("args = ", args, len(args))
             print("Before: ", Connected_Clients[ID])
-            doNext = next(command_process_generator(keyword, args, ID))
+            doNext = process_command(keyword, args, ID)
             print("generatorOut : ", doNext)
         elif Connected_Clients[ID][2][1] > 6: #user in a command
             int_to_str = {7: "name",
@@ -264,7 +262,7 @@ def loadSendBuffer(ID):
             args = contentArray[0].split(" ")
             print(args)
             keyword = int_to_str[Connected_Clients[ID][2][1]]
-            doNext = next(command_process_generator(keyword, args, ID))
+            doNext = process_command(keyword, args, ID)
             print("generatorOut : ", doNext)
         else: # not a command. user is chatting.
             try: #check if whispering.
@@ -293,7 +291,7 @@ def loadSendBuffer(ID):
             print("Send Buffer: \n ", send_buffer)
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
-def command_process_generator(keyword, args, ID):
+def process_command(keyword, args, ID):
     global user_cache
     keyword = keyword.lower().strip()
     str_to_int = {"name": 7,
@@ -305,249 +303,252 @@ def command_process_generator(keyword, args, ID):
                   "whisper": 13,
                   "broadcast": 14,
                   "see_active": 15}
-    while True:
-        try:
-            control = str_to_int[keyword]
-        except KeyError:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[30]
-            Connected_Clients[ID][2][1] = -2 # not continuing.
-            yield True
-        if keyword == "name":
-            if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
-                Connected_Clients[ID][2][1] = control #7
-                yield False
-            with open("users.txt", 'r') as file:
-                lines = file.readlines()
-                file.close()
-            found = False
-            currentUser = ()
-            for l in lines:
-                fullUser = l.partition(":")
-                found = args[0] == fullUser[0]
-                if fullUser[0] == Connected_Clients[ID][1]:
-                    currentUser = fullUser
-                if found: break
-            del lines, fullUser
-            if found:
-                del currentUser
-                Connected_Clients[ID][2][1] = control
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[12]
-                yield False
-            else:
-                toSend = Server_Messages[16] + " " + args[0]
-                currentUser_str = currentUser[0] + currentUser[1] + currentUser[2].replace("\n", '')
-                newUser_str = args[0] + currentUser[1] + currentUser[2].replace("\n", '')
-                print(currentUser_str)
-                print(newUser_str)
-                for room in Connected_Clients[ID][3]:
-                   # print(room)
-                    room.deleteMember(Connected_Clients[ID][1], "@@server")
-                    room.addMember(args[0], "@@server")
-                miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
-                del currentUser, newUser_str, currentUser_str
-                Connected_Clients[ID][1] = args[0]
-                send_buffer[Connected_Clients[ID][0]] = toSend
-                Connected_Clients[ID][2][1] = -1 #denotes done in function successfully
-                yield True
-        elif keyword == "password": #Add security/Multistep password Reset later
-            if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[13]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            # change the user's password
-            with open("users.txt", 'r') as file:
-                lines = file.readlines()
-                file.close()
-            currentUser = ()
-            for l in lines:
-                fullUser = l.partition(":")
-                if fullUser[0] == Connected_Clients[ID][1]:
-                    currentUser = fullUser
-                    break
-            del lines, fullUser
+
+    try:
+        control = str_to_int[keyword]
+    except KeyError:
+        send_buffer[Connected_Clients[ID][0]] = Server_Messages[30]
+        Connected_Clients[ID][2][1] = -2 # not continuing.
+        return True
+    if keyword == "name":
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
+            Connected_Clients[ID][2][1] = control #7
+            return False
+        with open("users.txt", 'r') as file:
+            lines = file.readlines()
+            file.close()
+        found = False
+        currentUser = ()
+        for l in lines:
+            fullUser = l.partition(":")
+            found = args[0] == fullUser[0]
+            if fullUser[0] == Connected_Clients[ID][1]:
+                currentUser = fullUser
+            if found: break
+        del lines, fullUser
+        if found:
+            del currentUser
+            Connected_Clients[ID][2][1] = control
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[12]
+            return False
+        else:
+            toSend = Server_Messages[16] + " " + args[0]
             currentUser_str = currentUser[0] + currentUser[1] + currentUser[2].replace("\n", '')
-            newUser_str = currentUser[0] + currentUser[1] + args[0]
+            newUser_str = args[0] + currentUser[1] + currentUser[2].replace("\n", '')
             print(currentUser_str)
             print(newUser_str)
+            for room in Connected_Clients[ID][3]:
+               # print(room)
+                room.changeUser(Connected_Clients[ID][1], args[0])
             miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
             del currentUser, newUser_str, currentUser_str
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[17]
-            Connected_Clients[ID][2][1] = -1 #successfully done with function
-            yield True
-        elif keyword == "new_room": # do invite lists later
-            try:
-                print("Name Cache: ", user_cache[ID]["NAME"])
-            except KeyError:
-                user_cache[ID]["NAME"] = ""
-            try:
-                print("Permissions Cache: ", user_cache[ID]["PERM"])
-            except KeyError:
-                user_cache[ID]["PERM"] = ""
-            for a in args:#Make idiot-proof later
-                if (a.lower() == "public" or a.lower() == "private") and not user_cache[ID]["PERM"]:
-                    user_cache[ID]["PERM"] = a.lower()
-                elif a[0] == "[":
-                    newStr = a.replace("[", "")
-                    newStr = newStr.replace("]", "")
-                    user_cache[ID]["INVITES"] = newStr
-                elif not user_cache[ID]["NAME"]:
-                    user_cache[ID]["NAME"] = a
-            if not user_cache[ID]["PERM"]:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[22]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            if not user_cache[ID]["NAME"]:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            # Try to make the room
-            try:
-                perm_dict = {"private": False, "public": True} # values already .lower()ed
-                newRoom = Room.Room(user_cache[ID]["NAME"], perm_dict[user_cache[ID]["PERM"]], Connected_Clients[ID][1], False)
-            except FileExistsError:
-                user_cache[ID]["NAME"] = ""
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[23]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            else:
-                Rooms[newRoom.roomName] = newRoom
-                Connected_Clients[ID][3].append(newRoom)
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[24]
-                Connected_Clients[ID][2][1] = -1 # done
-                del user_cache[ID]["NAME"], user_cache[ID]["PERM"] #Add invites later
-                yield True
-        elif keyword == "join":
-            if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            if not args[0] in Rooms:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
-                Connected_Clients[ID][2][1] = -2 #function will not be continuing
-                yield True
-            try:
-                Rooms[args[0]].addMember(Connected_Clients[ID][1], Connected_Clients[ID][1])
-            except PermissionError: #Room is private.
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[20]
-                Connected_Clients[ID][2][1] = -2 #Function will not continue executing.
-                yield True
-            else:
-                Connected_Clients[ID][3].append(Rooms[args[0]])
-                message = Server_Messages[25] + " " + args[0]
-                send_buffer[Connected_Clients[ID][0]] = message
-                Connected_Clients[ID][2][1] = -1 #function executed successfully.
-                yield True
-        elif keyword == "see_perm":
-            if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            if not args[0] in Rooms:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
-                Connected_Clients[ID][2][1] = -2 #Function will not continue
-                yield True
-            admin_list =[]
-            member_list = []
-            toSend = ""
-            if Rooms[args[0]].isPublic:
-                toSend += ("Public Room: " + args[0] + "\n")
-            else:
-                toSend += ("Private Room: " + args[0] + "\n")
-            for user in Rooms[args[0]].Members:
-                if user == Rooms[args[0]].owner:
-                    toSend += ("Owner:\n\t" + user+"\n")
-                elif user in Rooms[args[0]].Admins:
-                    admin_list.append(user)
-                else:
-                    member_list.append(user)
-            toSend += "Admins:\n"
-            for user in admin_list:
-                toSend += ("\t" + user+"\n")
-            toSend += "Members:\n"
-            for user in member_list:
-                toSend += ("\t" +user+"\n")
+            Connected_Clients[ID][1] = args[0]
             send_buffer[Connected_Clients[ID][0]] = toSend
-            Connected_Clients[ID][2][1] = -1 # Function Completed Successfully.
-            yield True
-        elif keyword == "see_room":
-            if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            if not args[0] in Rooms:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
-                Connected_Clients[ID][2][1] = -2 #Function will not continue
-                yield True
-            toSend = ""
-            if Rooms[args[0]].isPublic:
-                toSend += ("\tPublic Room: " + args[0] + "\n")
-            else:
-                toSend += ("\tPrivate Room: " + args[0] + "\n")
-            tabCount = 0 # 4 users, then next line
-            for user in Rooms[args[0]].Members:
-                toSend += (user + "\t")
-                tabCount += 1
-                if tabCount == 3:
-                    toSend += "\n"
-            send_buffer[Connected_Clients[ID][0]] = toSend
-            Connected_Clients[ID][2][1] = -1 # Function Completed Successfully.
-            yield True
-        elif keyword == "whisper":
-            if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            user_cache[ID]["TARGET"] = None
-            for sock_id in Connected_Clients:
-                if Connected_Clients[sock_id][1] == args[0]:
-                    user_cache[ID]["TARGET"] = sock_id
-                    break
-            if not user_cache[ID]["TARGET"]:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
-                Connected_Clients[ID][2][1] = -2 #function will not continue
-                yield True
-            message = Server_Messages[27] + args[0] + Server_Messages[28]
-            send_buffer[Connected_Clients[ID][0]] = message
-            Connected_Clients[ID][2][1] = -1 #Executed Successfully.
-            yield True
-        elif keyword == "broadcast":
-            try:
-                del user_cache[ID]["TARGET"]
-            except KeyError:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[26]
-                Connected_Clients[ID][2][1] = -1 #Executed Successfully
-                yield True
-            else:
-                message = Server_Messages[29] + Server_Messages[28]
-                send_buffer[Connected_Clients[ID][0]] = message
-                Connected_Clients[ID][2][1] = -1 #Executed Successfully
-                yield True
-        elif keyword == "see_active":
-            if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
-                Connected_Clients[ID][2][1] = control
-                yield False
-            if not args[0] in Rooms:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
-                Connected_Clients[ID][2][1] = -2 #Function will not continue
-                yield True
-            tempStr = ""
-            tabCount = 0 # 4 then newline
-            for inClient in Connected_Clients: # check each connected client
-                print("RoomArray: ", Connected_Clients[inClient])
-                try:
-                    if Rooms[args[0]] in Connected_Clients[inClient][3]:
-                        tempStr += (Connected_Clients[inClient][1] + "\t")
-                        tabCount+= 1
-                        if tabCount == 3:
-                            tempStr += "\n"
-                            tabCount = 0
-                except IndexError: #inclient is Server and is not in any rooms
-                    pass
-            send_buffer[Connected_Clients[ID][0]] = tempStr
+            Connected_Clients[ID][2][1] = -1 #denotes done in function successfully
+            return True
+    elif keyword == "password": #Add security/Multistep password Reset later
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[13]
             Connected_Clients[ID][2][1] = control
-            yield True
+            return False
+        # change the user's password
+        with open("users.txt", 'r') as file:
+            lines = file.readlines()
+            file.close()
+        currentUser = ()
+        for l in lines:
+            fullUser = l.partition(":")
+            if fullUser[0] == Connected_Clients[ID][1]:
+                currentUser = fullUser
+                break
+        del lines, fullUser
+        currentUser_str = currentUser[0] + currentUser[1] + currentUser[2].replace("\n", '')
+        newUser_str = currentUser[0] + currentUser[1] + args[0]
+        print(currentUser_str)
+        print(newUser_str)
+        miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
+        del currentUser, newUser_str, currentUser_str
+        send_buffer[Connected_Clients[ID][0]] = Server_Messages[17]
+        Connected_Clients[ID][2][1] = -1 #successfully done with function
+        return True
+    elif keyword == "new_room": # do invite lists later
+        try:
+            print("Name Cache: ", user_cache[ID]["NAME"])
+        except KeyError:
+            user_cache[ID]["NAME"] = ""
+        try:
+            print("Permissions Cache: ", user_cache[ID]["PERM"])
+        except KeyError:
+            user_cache[ID]["PERM"] = ""
+        for a in args:#Make idiot-proof later
+            if (a.lower() == "public" or a.lower() == "private") and not user_cache[ID]["PERM"]:
+                user_cache[ID]["PERM"] = a.lower()
+            elif a[0] == "[":
+                newStr = a.replace("[", "")
+                newStr = newStr.replace("]", "")
+                user_cache[ID]["INVITES"] = newStr
+            elif not user_cache[ID]["NAME"]:
+                user_cache[ID]["NAME"] = a
+        if not user_cache[ID]["PERM"]:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[22]
+            Connected_Clients[ID][2][1] = control
+            return False
+        if not user_cache[ID]["NAME"]:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            Connected_Clients[ID][2][1] = control
+            return False
+        # Try to make the room
+        try:
+            perm_dict = {"private": False, "public": True} # values already .lower()ed
+            newRoom = Room.Room(user_cache[ID]["NAME"], perm_dict[user_cache[ID]["PERM"]], Connected_Clients[ID][1], False)
+        except FileExistsError:
+            user_cache[ID]["NAME"] = ""
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[23]
+            Connected_Clients[ID][2][1] = control
+            return False
+        else:
+            Rooms[newRoom.roomName] = newRoom
+            Connected_Clients[ID][3].append(newRoom)
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[24]
+            Connected_Clients[ID][2][1] = -1 # done
+            del user_cache[ID]["NAME"], user_cache[ID]["PERM"] #Add invites later
+            return True
+    elif keyword == "join":
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            Connected_Clients[ID][2][1] = control
+            return False
+        if not args[0] in Rooms:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            Connected_Clients[ID][2][1] = -2 #function will not be continuing
+            return True
+        if Rooms[args[0]] in Connected_Clients[ID][3]: # user already in room
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[31]
+            Connected_Clients[ID][2][1] = -2 # not continuing
+            return True
+        try:
+            Rooms[args[0]].addMember(Connected_Clients[ID][1], Connected_Clients[ID][1])
+        except PermissionError: #Room is private.
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[20]
+            Connected_Clients[ID][2][1] = -2 #Function will not continue executing.
+            return True
+        else:
+            Connected_Clients[ID][3].append(Rooms[args[0]])
+            message = Server_Messages[25] + " " + args[0]
+            send_buffer[Connected_Clients[ID][0]] = message
+            Connected_Clients[ID][2][1] = -1 #function executed successfully.
+            return True
+    elif keyword == "see_perm":
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            Connected_Clients[ID][2][1] = control
+            return False
+        if not args[0] in Rooms:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            Connected_Clients[ID][2][1] = -2 #Function will not continue
+            return True
+        admin_list =[]
+        member_list = []
+        toSend = ""
+        if Rooms[args[0]].isPublic:
+            toSend += ("Public Room: " + args[0] + "\n")
+        else:
+            toSend += ("Private Room: " + args[0] + "\n")
+        for user in Rooms[args[0]].Members:
+            if user == Rooms[args[0]].owner:
+                toSend += ("Owner:\n\t" + user+"\n")
+            elif user in Rooms[args[0]].Admins:
+                admin_list.append(user)
+            else:
+                member_list.append(user)
+        toSend += "Admins:\n"
+        for user in admin_list:
+            toSend += ("\t" + user+"\n")
+        toSend += "Members:\n"
+        for user in member_list:
+            toSend += ("\t" +user+"\n")
+        send_buffer[Connected_Clients[ID][0]] = toSend
+        Connected_Clients[ID][2][1] = -1 # Function Completed Successfully.
+        return True
+    elif keyword == "see_room":
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            Connected_Clients[ID][2][1] = control
+            return False
+        if not args[0] in Rooms:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            Connected_Clients[ID][2][1] = -2 #Function will not continue
+            return True
+        toSend = ""
+        if Rooms[args[0]].isPublic:
+            toSend += ("\tPublic Room: " + args[0] + "\n")
+        else:
+            toSend += ("\tPrivate Room: " + args[0] + "\n")
+        tabCount = 0 # 4 users, then next line
+        for user in Rooms[args[0]].Members:
+            toSend += (user + "\t")
+            tabCount += 1
+            if tabCount == 3:
+                toSend += "\n"
+        send_buffer[Connected_Clients[ID][0]] = toSend
+        Connected_Clients[ID][2][1] = -1 # Function Completed Successfully.
+        return True
+    elif keyword == "whisper":
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
+            Connected_Clients[ID][2][1] = control
+            return False
+        user_cache[ID]["TARGET"] = None
+        for sock_id in Connected_Clients:
+            if Connected_Clients[sock_id][1] == args[0]:
+                user_cache[ID]["TARGET"] = sock_id
+                break
+        if not user_cache[ID]["TARGET"]:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+            Connected_Clients[ID][2][1] = -2 #function will not continue
+            return True
+        message = Server_Messages[27] + args[0] + Server_Messages[28]
+        send_buffer[Connected_Clients[ID][0]] = message
+        Connected_Clients[ID][2][1] = -1 #Executed Successfully.
+        return True
+    elif keyword == "broadcast":
+        try:
+            del user_cache[ID]["TARGET"]
+        except KeyError:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[26]
+            Connected_Clients[ID][2][1] = -1 #Executed Successfully
+            return True
+        else:
+            message = Server_Messages[29] + Server_Messages[28]
+            send_buffer[Connected_Clients[ID][0]] = message
+            Connected_Clients[ID][2][1] = -1 #Executed Successfully
+            return True
+    elif keyword == "see_active":
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            Connected_Clients[ID][2][1] = control
+            return False
+        if not args[0] in Rooms:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            Connected_Clients[ID][2][1] = -2 #Function will not continue
+            return True
+        tempStr = ""
+        tabCount = 0 # 4 then newline
+        for inClient in Connected_Clients: # check each connected client
+            print("RoomArray: ", Connected_Clients[inClient])
+            try:
+                if Rooms[args[0]] in Connected_Clients[inClient][3]:
+                    tempStr += (Connected_Clients[inClient][1] + "\t")
+                    tabCount+= 1
+                    if tabCount == 3:
+                        tempStr += "\n"
+                        tabCount = 0
+            except IndexError: #inclient is Server and is not in any rooms
+                pass
+        send_buffer[Connected_Clients[ID][0]] = tempStr
+        Connected_Clients[ID][2][1] = control
+        return True
 
 if __name__ == "__main__":
     messageFile = open("Messages.txt", 'r')

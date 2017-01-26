@@ -21,6 +21,9 @@ def connectToServer():
         file.close()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((IP, int(port)))
+    #sock.shutdown(socket.SHUT_RD)
+    sock.setblocking(False)
+    sock.settimeout(0.0)
     print("Connected to ", IP, "with name: ", sock.getpeername())
     return sock
 
@@ -50,23 +53,33 @@ def sendNextMessage(sock):
         message += ":`:" + currentRoom
         # ^ Rooms now handled by server.
         message = header.pack(len(message)) + message.encode("ascii")
-        sock.sendall(message)
-        print("Sent ", message, "to", sock)
+        try:
+            sock.sendall(message)
+            print("Sent ", message, "to", sock)
+        except socket.error as e:
+            print ("Error was ",e)
+            input()
+
         return False
 
 
 
 
 if __name__ == "__main__":
-    print("__control")
-    listener = connectToServer()
-    miscellaneous.replaceLine("conn_info.txt", 4, "False")  # output can start
-    exitCode = False
-    print("entering Loop")
-    while not exitCode:
-        exitCode = sendNextMessage(listener)
-    print('loop has exited')
-    miscellaneous.replaceLine("conn_info.txt", 4, "True")  # output is done. It can close
-    miscellaneous.cleanNewLines("conn_info.txt")
-    listener.close()
-    input()
+    try:
+        print("__control")
+        listener = connectToServer()
+        miscellaneous.replaceLine("conn_info.txt", 4, "False")  # output can start
+        exitCode = False
+        print("entering Loop")
+        while not exitCode:
+            exitCode = sendNextMessage(listener)
+        print('loop has exited')
+        miscellaneous.replaceLine("conn_info.txt", 4, "True")  # output is done. It can close
+        miscellaneous.cleanNewLines("conn_info.txt")
+        listener.shutdown(socket.SHUT_RDWR)
+        listener.close()
+        input()
+    except Exception as E:
+        print("Error was ", E)
+        input()
