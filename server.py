@@ -207,6 +207,7 @@ def loadSendBuffer(ID):
                     if Connected_Clients[ID][1] in Rooms[room].Members:
                         print(Rooms[room])
                         Connected_Clients[ID][3].append(Rooms[room])
+                        pass
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[10] #Add counter later for limited number of attempts.
         elif Connected_Clients[ID][2][1] == 5: #Create a new password.
@@ -257,7 +258,8 @@ def loadSendBuffer(ID):
                           11: "see_perm",
                           12: "see_room",
                           13: "whisper",
-                          14: "broadcast"}
+                          14: "broadcast",
+                          15: "see_active"}
             print(contentArray)
             args = contentArray[0].split(" ")
             print(args)
@@ -293,6 +295,7 @@ def loadSendBuffer(ID):
 
 def command_process_generator(keyword, args, ID):
     global user_cache
+    keyword = keyword.lower().strip()
     str_to_int = {"name": 7,
                   "password": 8,
                   "new_room": 9,
@@ -300,11 +303,15 @@ def command_process_generator(keyword, args, ID):
                   "see_perm":11,
                   "see_room":12,
                   "whisper": 13,
-                  "broadcast": 14}
-                  # "NEW_CONNECTION": -2,
-                  # "DEL_CONNECTION": -3}
+                  "broadcast": 14,
+                  "see_active": 15}
     while True:
-        control = str_to_int[keyword]
+        try:
+            control = str_to_int[keyword]
+        except KeyError:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[30]
+            Connected_Clients[ID][2][1] = -2 # not continuing.
+            yield True
         if keyword == "name":
             if len(args) == 0:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
@@ -516,15 +523,31 @@ def command_process_generator(keyword, args, ID):
                 send_buffer[Connected_Clients[ID][0]] = message
                 Connected_Clients[ID][2][1] = -1 #Executed Successfully
                 yield True
-
-
-        # elif keyword == "NEW_CONNECTION":
-        #     user_cache[ID] = {}
-        #     yield True
-        # elif keyword == "DEL_CONNECTION":
-        #     del user_cache[ID]
-        #     yield True
-
+        elif keyword == "see_active":
+            if len(args) == 0:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+                Connected_Clients[ID][2][1] = control
+                yield False
+            if not args[0] in Rooms:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                Connected_Clients[ID][2][1] = -2 #Function will not continue
+                yield True
+            tempStr = ""
+            tabCount = 0 # 4 then newline
+            for inClient in Connected_Clients: # check each connected client
+                print("RoomArray: ", Connected_Clients[inClient])
+                try:
+                    if Rooms[args[0]] in Connected_Clients[inClient][3]:
+                        tempStr += (Connected_Clients[inClient][1] + "\t")
+                        tabCount+= 1
+                        if tabCount == 3:
+                            tempStr += "\n"
+                            tabCount = 0
+                except IndexError: #inclient is Server and is not in any rooms
+                    pass
+            send_buffer[Connected_Clients[ID][0]] = tempStr
+            Connected_Clients[ID][2][1] = control
+            yield True
 
 if __name__ == "__main__":
     messageFile = open("Messages.txt", 'r')

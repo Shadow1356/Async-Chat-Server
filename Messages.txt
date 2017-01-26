@@ -28,3 +28,4 @@ Already in Broadcast State
 Whispering
 ....
 Talking
+Command Not Recognized.
