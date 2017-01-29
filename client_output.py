@@ -45,7 +45,7 @@ def Listen():
             #print("IN blocking error")
             continue
         if message:
-            print("X = ", x)
+            #print("X = ", x)
             x += 1
             print(message.decode('ascii'))
             message = ""

@@ -30,3 +30,14 @@ Whispering
 Talking
 Command Not Recognized.
 Already in Room.
+Enter a Room and/or Username
+Not a Recognized Room or Username.
+User Not Validated.
+User Not Available. Waiting to Send Request.
+ is inviting you to room:
+Would you like to join?(y/n)
+Inviting
+ does not have high enough privilege.
+You do not have High enough privilege to invite.
+Invitation Accepted.
+Invitation Declined.
