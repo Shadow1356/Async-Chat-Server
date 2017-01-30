@@ -60,9 +60,8 @@ class Room(object):
         self.owner = newOwner
         if self.owner not in self.Members:
             self.Members.append(self.owner)
-        if __name__ == '__main__':
-            if self.owner not in self.Admins:
-                self.Admins.append(self.owner)
+        if self.owner not in self.Admins:
+            self.Admins.append(self.owner)
         # set file
         miscellaneous.replaceLine(self.__roomFile, 2, self.owner)
 
@@ -71,11 +70,27 @@ class Room(object):
             raise PermissionError
         if user in self.Admins:
             raise ValueError
-        else:
-            self.Admins.append(user)
+        self.Admins.append(user)
         if user not in self.Members:
             self.Members.append(user)
         miscellaneous.addToLine(self.__roomFile, 4, (user + ":"))
+
+    def deleteAdmin(self, admin, requester):
+        if requester != self.owner:
+            raise PermissionError
+        if not admin in self.Admins:
+            raise ValueError
+        self.Admins.pop(self.Admins.index(admin))
+        miscellaneous.findAndReplace(self.__roomFile, "", (admin+":"))
+        print(admin, " deleted from ", self.roomName)
+
+    def deleteRoom(self, requester):
+        if requester != self.owner:
+            raise PermissionError
+        indexPath = self.__roomDirPath + "__index__.txt"
+        miscellaneous.findAndReplaceLine(indexPath, "", self.roomName)
+        os.remove(self.__roomFile)
+        del self.roomName, self.Admins, self.Members, self.isPublic, self.owner, self.roomName
 
     def addMember(self, user, requester):
         if not self.isPublic and requester not in self.Admins:
@@ -86,13 +101,16 @@ class Room(object):
     def deleteMember(self, user, requester):
         if not self.isPublic and requester not in self.Admins:
             raise PermissionError
-        print(self.roomName)
-        for elem in self.Members:
-            print(elem, " = ", user, elem ==user)
-            pass
+
+        # print(self.roomName)
+        # for elem in self.Members:
+        #     print(elem, " = ", user, elem ==user)
+        #     pass
         userIndex = self.Members.index(user)
         self.Members.pop(userIndex)
         miscellaneous.findAndReplace(self.__roomFile,"", (user+":"))
+        print(user, " deleted from ", self.roomName)
+
 
     def setPermission(self, isPublic, requester):
         if requester != self.owner:
