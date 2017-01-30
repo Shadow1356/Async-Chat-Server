@@ -19,3 +19,7 @@ Password changed.
 Unrecognized Room.
 You are not in this Room.
 Access Denied.
+Enter a Name:
+Is Room Public or Private:
+Name Taken. Choose another.
+Room Created.

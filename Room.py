@@ -87,7 +87,14 @@ class Room(object):
         if requester != self.owner:
             raise PermissionError
         self.isPublic = isPublic
-        miscellaneous.replaceLine(self.__roomFile, 1, "True")
+        miscellaneous.replaceLine(self.__roomFile, 1, str(isPublic))
+
+    def setName(self, newName, requester):
+        if requester != self.owner:
+            raise PermissionError
+        self.__updateIndex(newName, self.roomName)
+        self.roomName = newName
+        self.__roomFile = self.__roomDirPath + self.roomName + ".txt"
 
 
 def LoadRooms():
@@ -147,12 +154,12 @@ def LoadRooms():
 
 
 if __name__ == "__main__":
-    pass
     try:
-        newRoom = Room("room3", False, "@@server", False)
+        newRoom = Room("@temptesting", False, "@@server", False)
     except FileExistsError:
         print("Name Taken.")
-    newRoom.addMember("Nick", "@@server")
+    newRoom.setName("testing", "@@server")
+
     # newRoom.setOwner("Nick", "ME")
     # newRoom.addAdmin("Scott", "Nick")
     # newRoom.addMember("Barry", "Nick")

@@ -258,12 +258,23 @@ def loadSendBuffer(ID):
             else:
                 print("After: ", Connected_Clients[ID])
                 Connected_Clients[ID][2][1] = -1
+                if Connected_Clients[ID][3][-1].roomName[0:5] == "@temp": #get rid of temp if finished
+                    Connected_Clients[ID][3][-1].setName(Connected_Clients[ID][3][-1].roomName[5:],
+                                                         Connected_Clients[ID][1])
+                # elif not Connected_Clients[3][-1].roomName in Rooms: #add new room to Rooms if it exists
+                    Rooms[Connected_Clients[ID][3][-1].roomName] = Connected_Clients[ID][3][-1]
+                    print(Rooms)
             send_buffer[Connected_Clients[ID][0]] = doNext[1]
         elif Connected_Clients[ID][2][1] >6:
             args = contentArray[0].split(" ")
             doNext = commands.int_to_function[Connected_Clients[ID][2][1]](args, Connected_Clients[ID])
             if not doNext[0]:
                 Connected_Clients[ID][2][1] = -1
+                if Connected_Clients[ID][3][-1].roomName[0:5] == "@temp":#get rid of temp if finished
+                    Connected_Clients[ID][3][-1].setName(Connected_Clients[ID][3][-1].roomName[5:],
+                                                         Connected_Clients[ID][1])
+                # elif Connected_Clients[3][-1].roomName not in Rooms:  # add new room to Rooms if it exists
+                    Rooms[Connected_Clients[ID][3][-1].roomName] = Connected_Clients[ID][3][-1]
             send_buffer[Connected_Clients[ID][0]] = doNext[1]
         else: # not a command. user is chatting.
             #validate room first
