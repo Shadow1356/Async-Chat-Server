@@ -13,6 +13,8 @@ if sys.platform == "Windows":
 else:
     __dirPath = os.getcwd() + "/messages/"
 
+currentRoom = "@@broadcast@@"
+
 def connectToServer():
     with open("conn_info.txt", 'r') as file:
         IP, port = file.readlines()[0:2]
@@ -27,7 +29,7 @@ def connectToServer():
 
 
 def sendNextMessage(sock):
-    global __dirPath
+    global __dirPath, currentRoom
     dirContents = os.listdir(__dirPath)
     if dirContents:
         fileName = sorted(dirContents)[0]
@@ -44,7 +46,11 @@ def sendNextMessage(sock):
             file.close()
         header = struct.Struct(formatCharacter)
         ##Need to add which room
-       # message += ":`:@@broadcast@@" #Temporary. will add dynamic room stuff later.
+        if message[0:2] == "`/":
+            seperated = message[2:].partition(" ")
+            currentRoom = seperated[0]
+            message = seperated[2]
+        message += ":`:" + currentRoom
         # ^ Rooms now handled by server.
         message = header.pack(len(message)) + message.encode("ascii")
         sock.sendall(message)
@@ -65,4 +71,5 @@ if __name__ == "__main__":
     print('loop has exited')
     miscellaneous.replaceLine("conn_info.txt", 4, "True")  # output is done. It can close
     miscellaneous.cleanNewLines("conn_info.txt")
+    listener.close()
     input()
