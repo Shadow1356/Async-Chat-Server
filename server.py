@@ -5,20 +5,25 @@ Globals
 """
 with open("conn_info.txt", 'r') as file:
     lines = file.readlines()
+
     LISTEN_PORT = int(lines[1])
     SEND_PORT = int(lines[2])
+
     header = struct.Struct(lines[4])
     file.close()
 recv_buffer = {}  # socket ---> str
 send_buffer = {}  # socket ---> str
 Server_Messages = []
+
 Connected_Clients = {}  # socket ---> [socket, str]
 Rooms = {} #Room.roomName --> Room
+
 
 
 def Main(listener):
     Broadcast = Rooms["@@broadcast@@"]
     while True:  # probably add condition later
+
         r, w, e = next(selectGenerator())
 
         for sock in r:
@@ -100,22 +105,29 @@ def noneFilter(array):
     return returnList
 
 
+
 def createListenSocket():
     raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     #raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     raw_socket.setblocking(0)
+
     raw_socket.bind(('', LISTEN_PORT))
+
     raw_socket.listen(5)
     return raw_socket
     # more will be added to the ssl socket for security purposes
 
 
+
 def selectGenerator():
     while True:  #probably add a condition later.
+
         inputSockets = list(Connected_Clients.keys())
         outputSockets = []
         for array in list(Connected_Clients.values()):
             outputSockets.append(array[0])
+
        # print(inputSockets, "\n", outputSockets)
         inputSockets2 = noneFilter(inputSockets)
         r, w, e = select.select(inputSockets2, noneFilter(outputSockets), inputSockets2)
@@ -269,16 +281,22 @@ def loadSendBuffer(ID):
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
 
+
 if __name__ == "__main__":
     messageFile = open("Messages.txt", 'r')
     Server_Messages = messageFile.readlines()
     messageFile.close()
     for i in range(0, len(Server_Messages)):
         Server_Messages[i] = Server_Messages[i].replace('\n', '')
+
     Rooms = Room.LoadRooms()
+
     listSocket = createListenSocket()
+
     Connected_Clients[listSocket] = [None, "@@server", [False, 0]]
+
     try:
         Main(listSocket)
     except ConnectionError as error:
         print("There was a boo-boo: \n", error)
+
