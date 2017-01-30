@@ -36,14 +36,15 @@ def sendNextMessage(sock):
         file.close()
         os.remove((__dirPath+fileName))
         if message == "`exit":
-            print("In exit condition")
+       #     print("In exit condition")
             return True
-        print("getting here")
+      #  print("getting here")
         with open("conn_info.txt", 'r') as file:
             formatCharacter = file.readlines()[4].replace('\n', '')
             file.close()
         header = struct.Struct(formatCharacter)
         ##Need to add which room
+        message += ":`:@@broadcast@@" #Temporary. will add dynamic room stuff later.
         message = header.pack(len(message)) + message.encode("ascii")
         sock.sendall(message)
         print("Sent ", message, "to", sock)
@@ -53,12 +54,13 @@ def sendNextMessage(sock):
 
 
 if __name__ == "__main__":
+    print("__control")
     listener = connectToServer()
-    miscellaneous.replaceLine("conn_info.txt", 5, "False")  # output can start
+    miscellaneous.replaceLine("conn_info.txt", 4, "False")  # output can start
     exitCode = False
     print("entering Loop")
     while not exitCode:
         exitCode = sendNextMessage(listener)
     print('loop has exited')
-    miscellaneous.replaceLine("conn_info.txt", 5, "True")  # output is done. It can close
+    miscellaneous.replaceLine("conn_info.txt", 4, "True")  # output is done. It can close
     input()
