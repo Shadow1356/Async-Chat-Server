@@ -28,18 +28,24 @@ def Listen():
     recv_sock.shutdown(socket.SHUT_WR)
     print("Connected to Server: ", sockname)
     recv_sock.shutdown(socket.SHUT_WR)
+    recv_sock.settimeout(0.0)
     print(recv_sock.gettimeout())
-    recv_sock.settimeout(500.0)
+    done = False
    # x =1
-    while not isDone():
+    while not done:
     #    print("In Here", x)
      #   x+= 1
         try:
             message = recv_sock.recv(4096)  # figure out correct byte value
         except TimeoutError:
             break # Handle error later
+        except BlockingIOError:
+           # print("IN blocking error")
+            continue
         if message:
             print(message.decode('ascii'))
+            message = ""
+            done = isDone()
     recv_sock.close()
     raw_socket.close()
 

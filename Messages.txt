@@ -10,3 +10,7 @@ Username not Recognized
 Please Try Again Later
 Password not Correct
 Invalid Response
+Username already in Use. Choose Another.
+Enter a Password:
+New User Created
+Password does not match.
