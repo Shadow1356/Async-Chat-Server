@@ -16,9 +16,10 @@ def findAndReplace(path, replace, old):#locates old and replaces it with replace
     readFile = open(path, 'r+')
     Lines = readFile.readlines()
     for i in range(len(Lines)):
-        if old == Lines[i].replace('\n', ''):
+        if old in Lines[i].replace('\n', ''):
             print("REPLACING")
-            Lines[i] = replace+"\n"
+            newStr = Lines[i].replace(old, replace)
+            Lines[i] = newStr
     readFile.close()
     writeFile = open(path, "w")
     for elem in Lines:

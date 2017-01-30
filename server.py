@@ -42,7 +42,7 @@ def Main(listener):
                 #     else:
                 #         break
                 ###Since recv_sock is not blocking in __output, outSock should be okay.
-                Connected_Clients[inSock] = [outSock, "", [False, 1], [Broadcast]]
+                Connected_Clients[inSock] = [outSock, "", [False, 1], []]
                                                                 # add dynamic room stuff later
                 recv_buffer[inSock] = None
                 sendStr = Server_Messages[0] + "\n" + Server_Messages[1] + "\n"+ Server_Messages[2]
@@ -250,32 +250,18 @@ def loadSendBuffer(ID):
             args = Command[1:]
             print("args = ", args, len(args))
             print("Before: ", Connected_Clients[ID])
-            doNext = commands.str_to_function[keyword](args, Connected_Clients[ID])
-            #commands.py functions return [bool, str]; 0: if waiting for more input, 1: put into
-                                                                            #send buffer
-            if doNext[0]: #function is wating for input
-                Connected_Clients[ID][2][1] = commands.str_to_int[keyword]
-            else:
-                print("After: ", Connected_Clients[ID])
-                Connected_Clients[ID][2][1] = -1
-                if Connected_Clients[ID][3][-1].roomName[0:5] == "@temp": #get rid of temp if finished
-                    Connected_Clients[ID][3][-1].setName(Connected_Clients[ID][3][-1].roomName[5:],
-                                                         Connected_Clients[ID][1])
-                # elif not Connected_Clients[3][-1].roomName in Rooms: #add new room to Rooms if it exists
-                    Rooms[Connected_Clients[ID][3][-1].roomName] = Connected_Clients[ID][3][-1]
-                    print(Rooms)
-            send_buffer[Connected_Clients[ID][0]] = doNext[1]
-        elif Connected_Clients[ID][2][1] >6:
+            doNext = next(command_process_generator(keyword, args, ID))
+            print("generatorOut : ", doNext)
+        elif Connected_Clients[ID][2][1] > 6:
+            int_to_str = {7: "name",
+                          8: "password",
+                          9: "new_room"}
+            print(contentArray)
             args = contentArray[0].split(" ")
-            doNext = commands.int_to_function[Connected_Clients[ID][2][1]](args, Connected_Clients[ID])
-            if not doNext[0]:
-                Connected_Clients[ID][2][1] = -1
-                if Connected_Clients[ID][3][-1].roomName[0:5] == "@temp":#get rid of temp if finished
-                    Connected_Clients[ID][3][-1].setName(Connected_Clients[ID][3][-1].roomName[5:],
-                                                         Connected_Clients[ID][1])
-                # elif Connected_Clients[3][-1].roomName not in Rooms:  # add new room to Rooms if it exists
-                    Rooms[Connected_Clients[ID][3][-1].roomName] = Connected_Clients[ID][3][-1]
-            send_buffer[Connected_Clients[ID][0]] = doNext[1]
+            print(args)
+            keyword = int_to_str[Connected_Clients[ID][2][1]]
+            doNext = next(command_process_generator(keyword, args, ID))
+            print("generatorOut : ", doNext)
         else: # not a command. user is chatting.
             #validate room first
             if not contentArray[1] in Rooms: #room doesn't exist
@@ -290,6 +276,77 @@ def loadSendBuffer(ID):
                         send_buffer[Connected_Clients[inClient][0]] = fullText
             print("Send Buffer: \n ", send_buffer)
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
+
+def command_process_generator(keyword, args, ID):
+    str_to_int = {"name": 7,
+                  "password": 8,
+                  "new_room": 9}
+    user_cache = {} #socketID -> string of cache
+    while True:
+        control = str_to_int[keyword]
+        if keyword == "name":
+            if len(args) == 0:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
+                Connected_Clients[ID][2][1] = control #7
+                yield False
+            with open("users.txt", 'r') as file:
+                lines = file.readlines()
+                file.close()
+            found = False
+            currentUser = ()
+            for l in lines:
+                fullUser = l.partition(":")
+                found = args[0] == fullUser[0]
+                if fullUser[0] == Connected_Clients[ID][1]:
+                    currentUser = fullUser
+                if found: break
+            del lines, fullUser
+            if found:
+                del currentUser
+                Connected_Clients[ID][2][1] = control
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[12]
+                yield False
+            else:
+                toSend = Server_Messages[16] + " " + args[0]
+                currentUser_str = currentUser[0] + currentUser[1] + currentUser[2].replace("\n", '')
+                newUser_str = args[0] + currentUser[1] + currentUser[2].replace("\n", '')
+                print(currentUser_str)
+                print(newUser_str)
+                for room in Connected_Clients[ID][3]:
+                   # print(room)
+                    room.deleteMember(Connected_Clients[ID][1], "@@server")
+                    room.addMember(args[0], "@@server")
+                miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
+                del currentUser, newUser_str, currentUser_str
+                Connected_Clients[ID][1] = args[0]
+                send_buffer[Connected_Clients[ID][0]] = toSend
+                Connected_Clients[ID][2][1] = -1 #denotes done in function successfully
+                yield True
+        elif keyword == "password": #Add security/Multistep password Reset later
+            if len(args) == 0:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[13]
+                Connected_Clients[ID][2][1] = control
+                yield False
+            # change the user's password
+            with open("users.txt", 'r') as file:
+                lines = file.readlines()
+                file.close()
+            currentUser = ()
+            for l in lines:
+                fullUser = l.partition(":")
+                if fullUser[0] == Connected_Clients[ID][1]:
+                    currentUser = fullUser
+                    break
+            del lines, fullUser
+            currentUser_str = currentUser[0] + currentUser[1] + currentUser[2].replace("\n", '')
+            newUser_str = currentUser[0] + currentUser[1] + args[0]
+            print(currentUser_str)
+            print(newUser_str)
+            miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
+            del currentUser, newUser_str, currentUser_str
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[17]
+            Connected_Clients[ID][2][1] = -1 #successfully done with function
+            yield True
 
 
 

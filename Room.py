@@ -83,6 +83,17 @@ class Room(object):
         self.Members.append(user)
         miscellaneous.addToLine(self.__roomFile, 3, (user + ":"))
 
+    def deleteMember(self, user, requester):
+        if not self.isPublic and requester not in self.Admins:
+            raise PermissionError
+        print(self.roomName)
+        for elem in self.Members:
+            print(elem, " = ", user, elem ==user)
+            pass
+        userIndex = self.Members.index(user)
+        self.Members.pop(userIndex)
+        miscellaneous.findAndReplace(self.__roomFile,"", (user+":"))
+
     def setPermission(self, isPublic, requester):
         if requester != self.owner:
             raise PermissionError
