@@ -22,7 +22,6 @@ user_cache = {} #socketID -> string of cache
 
 
 def Main(listener):
-    Broadcast = Rooms["@@broadcast@@"]
     while True:  # probably add condition later
 
         r, w, e = next(selectGenerator())
@@ -88,9 +87,17 @@ def Main(listener):
                     sock.sendall(toSend)
                     send_buffer[sock] = None
                     print(toSend, " sent to ", sock.getpeername())
-                    pass
             except KeyError: #socket disconnected and cleaned up. w, not updated though.
                 continue
+            try:
+            # Going to retry an operation
+             #Add Timeout later.
+                print(user_cache[sock]["RETRY"])
+            except KeyError:
+                pass
+            else:
+                recv_buffer[sock][1] = ""
+                loadSendBuffer(sock)
         for sock in e:
             # might never be reached. Leaving it, because I'm paranoid.
             outSock = Connected_Clients.pop(sock)
@@ -215,6 +222,7 @@ def loadSendBuffer(ID):
             if password == fullUser[2].replace("\n", ""): #password correct, user fully authenticated.
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[7]
                 Connected_Clients[ID][2][0] = True
+                Connected_Clients[ID][2][1] = -1
                 for room in Rooms: #Load the rooms that the user is in.
                     if Connected_Clients[ID][1] in Rooms[room].Members:
                         print(Rooms[room])
@@ -243,7 +251,8 @@ def loadSendBuffer(ID):
             if password == fullUser[2].replace("\n", ""): #password matches, user fully authenticated.
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[14] + '\n' + Server_Messages[7]
                 Connected_Clients[ID][2][0] = True
-
+                Connected_Clients[ID][2][1] = -1
+                Connected_Clients[ID][3].append(Rooms["@@broadcast@@"])
                 Connected_Clients[ID][3][0].addMember(Connected_Clients[ID][1], "@@server")
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[15] #Add timeout.
@@ -271,7 +280,9 @@ def loadSendBuffer(ID):
                           12: "see_room",
                           13: "whisper",
                           14: "broadcast",
-                          15: "see_active"}
+
+                          15: "see_active",
+                          16: "invite"}
 
             print(contentArray)
             args = contentArray[0].split(" ")
@@ -309,7 +320,8 @@ def loadSendBuffer(ID):
 
 def process_command(keyword, args, ID):
 
-    global user_cache
+    global user_cache, Connected_Clients, Server_Messages
+
     keyword = keyword.lower().strip()
     str_to_int = {"name": 7,
                   "password": 8,
@@ -320,7 +332,8 @@ def process_command(keyword, args, ID):
                   "whisper": 13,
 
                   "broadcast": 14,
-                  "see_active": 15}
+                  "see_active": 15,
+                  "invite": 16}
 
     try:
 
@@ -436,6 +449,46 @@ def process_command(keyword, args, ID):
             del user_cache[ID]["NAME"], user_cache[ID]["PERM"] #Add invites later
             return True
     elif keyword == "join":
+        try:
+            print(user_cache[ID]["INVITATION"])
+        except KeyError:
+            pass
+        else: #USer has a pending invitation
+            requester = findClient(user_cache[ID]["INVITATION"][1])
+            if len(args) == 0:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                Connected_Clients[ID][2][1] = control
+                return False
+            if args[0] == "y": #user will be joining
+                target_room = user_cache[ID]["INVITATION"][0]
+                try:
+                    Rooms[target_room].addMember(Connected_Clients[ID][1],
+                                             requester[0])
+                except PermissionError:  # Requester does not have the privilege to invite.
+                    send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[40]
+                    send_buffer[Connected_Clients[ID][0]] = requester[0] + Server_Messages[39]
+                    Connected_Clients[ID][2][1] = -2  # Function will not continue executing.
+                    del user_cache[ID]["INVITATION"]
+                    return True
+                else:
+                    send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[41]
+                    Connected_Clients[ID][3].append(Rooms[target_room])
+                    message = Server_Messages[25] + " " + target_room
+                    send_buffer[Connected_Clients[ID][0]] = message
+                    Connected_Clients[ID][2][1] = -1  # function executed successfully.
+                    del user_cache[ID]["INVITATION"]
+                    return True
+            elif args[0] == "n":
+                send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[42]
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[42]
+                Connected_Clients[ID][2][1] = -1
+                del user_cache[ID]["INVITATION"]
+                return True
+            else:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                Connected_Clients[ID][2][1] = control
+                return False
+
         if len(args) == 0:
             send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
             Connected_Clients[ID][2][1] = control
@@ -570,6 +623,101 @@ def process_command(keyword, args, ID):
         send_buffer[Connected_Clients[ID][0]] = tempStr
         Connected_Clients[ID][2][1] = control
         return True
+    elif keyword == "invite":
+        try:
+            print(user_cache[ID]["INVITE"])
+        except KeyError:
+            user_cache[ID]["INVITE"] = ""
+        try:
+            print(user_cache[ID]["ROOM"])
+        except KeyError:
+            user_cache[ID]["ROOM"] = ""
+        if len(args) == 0:
+            Connected_Clients[ID][2][1] = control
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[32]
+            return False
+        if len(args) == 1 and user_cache[ID]["INVITE"]:
+            if args[0] in Rooms:
+                user_cache[ID]["ROOM"] = args[0]
+            else:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                Connected_Clients[ID][2][1] = control
+                return False
+        if len(args) == 1 and user_cache[ID]["ROOM"]:
+            search_results = findClient(args[0])
+            if not search_results[0]:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+                Connected_Clients[ID][2][1] = control
+                return False
+            user_cache[ID]["INVITE"] = (args[0], search_results[1])
+        if len(args) == 1:
+            at_least_1 = False
+            if args[0] in Rooms:
+                user_cache[ID]["ROOMS"] = args[0]
+                at_least_1 = True
+            else:
+                search_results = findClient(args[0])
+                if search_results[0]:
+                    user_cache[ID]["INVITE"] = (args[0], search_results[1])
+                    at_least_1 = True
+            if not at_least_1:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[33]
+                Connected_Clients[ID][2][1] = -2 #Function not continuing
+        if len(args) > 1:
+            for argument in args:
+                if argument in Rooms:
+                    user_cache[ID]["ROOM"] = argument
+                else:
+                    search_results = findClient(argument)
+                    if search_results[0]:
+                        user_cache[ID]["INVITE"] = (argument, search_results[1])
+        if user_cache[ID]["INVITE"] and user_cache[ID]["ROOM"]:
+            inv_ID = user_cache[ID]["INVITE"][1]
+            inv_room = user_cache[ID]["ROOM"]
+            inv_name = user_cache[ID]["INVITE"][0]
+            if Rooms[inv_room] in Connected_Clients[inv_ID][3]:
+                del user_cache[ID]["ROOM"], user_cache[ID]["INVITE"]
+                Connected_Clients[ID][2][1] = -2 # function not continuing
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[31]
+                return True
+            if not Connected_Clients[inv_ID][2][0]:
+                del user_cache[ID]["ROOM"], user_cache[ID]["INVITE"]
+                Connected_Clients[ID][2][1] = -2 #not continuing
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[34]
+                return True
+            if Connected_Clients[ID][2][1] >0:
+                # Invitee is doing a command. Wait to send request
+                Connected_Clients[ID][2][1] = control
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[35]
+                user_cache[ID]["RETRY"] = True
+                return False
+            else:
+                inviteMessage = Connected_Clients[ID][1] + Server_Messages[36] \
+                            + inv_room + "\n" + Server_Messages[37]
+                senderMessage = Server_Messages[38] + inv_name + Server_Messages[28]
+                send_buffer[Connected_Clients[inv_ID][0]] = inviteMessage
+                send_buffer[Connected_Clients[ID][0]] =senderMessage
+                Connected_Clients[ID][2][1] = -1 #FUnction done successfully
+                Connected_Clients[inv_ID][2][1] = str_to_int["join"]
+                try:
+                    del user_cache[ID]["RETRY"]
+                except KeyError:
+                    pass
+                user_cache[inv_ID]["INVITATION"] = (inv_room, Connected_Clients[ID][1])
+                return True
+        elif not user_cache[ID]["ROOM"]:
+            print("IN THE NO ROOM PART")
+        elif not user_cache[ID]["INVITE"]:
+            print("INT THE NOT INVITE PART")
+
+
+
+def findClient(name):
+    global Connected_Clients
+    for client, CC in Connected_Clients:
+        if CC[1] == name:
+            return True, client
+    return False, None
 
 
 if __name__ == "__main__":
