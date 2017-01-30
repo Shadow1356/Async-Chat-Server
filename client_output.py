@@ -31,18 +31,22 @@ def Listen():
     recv_sock.settimeout(0.0)
     print(recv_sock.gettimeout())
     done = False
-   # x =1
+    x =1
     while not done:
     #    print("In Here", x)
      #   x+= 1
         try:
             message = recv_sock.recv(4096)  # figure out correct byte value
         except TimeoutError:
-            break # Handle error later
+            print("IN TIMEOUT")
+            input()
+            continue # Handle error later
         except BlockingIOError:
-           # print("IN blocking error")
+            #print("IN blocking error")
             continue
         if message:
+            print("X = ", x)
+            x += 1
             print(message.decode('ascii'))
             message = ""
             done = isDone()
@@ -51,4 +55,8 @@ def Listen():
 
 if __name__ == "__main__":
     print("__ouptput")
-    Listen()
+    try:
+        Listen()
+    except Exception as E:
+        print("Error was ", E)
+        input()

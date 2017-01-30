@@ -1,3 +1,4 @@
+
 import os, platform, miscellaneous
 from copy import deepcopy
 
@@ -81,7 +82,7 @@ class Room(object):
         if not admin in self.Admins:
             raise ValueError
         self.Admins.pop(self.Admins.index(admin))
-        miscellaneous.findAndReplace(self.__roomFile, "", (admin+":"))
+        miscellaneous.findAndReplace(self.__roomFile, ":", (":"+admin+":"))
         print(admin, " deleted from ", self.roomName)
 
     def deleteRoom(self, requester):
@@ -101,16 +102,23 @@ class Room(object):
     def deleteMember(self, user, requester):
         if not self.isPublic and requester not in self.Admins:
             raise PermissionError
-
-        # print(self.roomName)
-        # for elem in self.Members:
-        #     print(elem, " = ", user, elem ==user)
-        #     pass
         userIndex = self.Members.index(user)
         self.Members.pop(userIndex)
-        miscellaneous.findAndReplace(self.__roomFile,"", (user+":"))
+        miscellaneous.findAndReplace(self.__roomFile,":", (":"+user+":"))
         print(user, " deleted from ", self.roomName)
 
+    def changeUser(self, oldUser, newUser):
+        if oldUser == self.owner:
+            self.owner = newUser
+            miscellaneous.replaceLine(self.__roomFile, 2, newUser)
+        if oldUser in self.Admins:
+            self.Admins.pop(self.Admins.index(oldUser))
+            self.Admins.append(newUser)
+        self.Members.pop(self.Members.index(oldUser))
+        self.Members.append(newUser)
+        newStr = ":" + newUser + ":"
+        oldStr = ":" + oldUser + ":"
+        miscellaneous.findAndReplace(self.__roomFile, newStr, oldStr) # Members and admins
 
     def setPermission(self, isPublic, requester):
         if requester != self.owner:
@@ -188,7 +196,11 @@ if __name__ == "__main__":
     except FileExistsError:
         print("Name Taken.")
     newRoom.setName("testing", "@@server")
-
+    newRoom.addMember("Nick", "@@server")
+    newRoom.addAdmin("Scott", "@@server")
+    newRoom.changeUser("Nick", "Hurst")
+    newRoom.changeUser("Scott", "Ann")
+    newRoom.changeUser("@@server", "server2.0")
     # newRoom.setOwner("Nick", "ME")
     # newRoom.addAdmin("Scott", "Nick")
     # newRoom.addMember("Barry", "Nick")
@@ -202,5 +214,7 @@ if __name__ == "__main__":
     # Rooms = LoadRooms()
     # for elem in Rooms:
     #     print(elem)
+
+
 
    # Broadcast = Room("@@broadcast@@", True, "@@server", False)
