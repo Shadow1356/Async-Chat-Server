@@ -101,6 +101,7 @@ class Room(object):
     def deleteMember(self, user, requester):
         if not self.isPublic and requester not in self.Admins:
             raise PermissionError
+
         # print(self.roomName)
         # for elem in self.Members:
         #     print(elem, " = ", user, elem ==user)
@@ -109,6 +110,7 @@ class Room(object):
         self.Members.pop(userIndex)
         miscellaneous.findAndReplace(self.__roomFile,"", (user+":"))
         print(user, " deleted from ", self.roomName)
+
 
     def setPermission(self, isPublic, requester):
         if requester != self.owner:
