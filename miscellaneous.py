@@ -18,7 +18,6 @@ def findAndReplace(path, replace, old):#locates old and replaces it with replace
     Lines = readFile.readlines()
     for i in range(len(Lines)):
         if old in Lines[i].replace('\n', ''):
-
             print("REPLACING")
             newStr = Lines[i].replace(old, replace)
             Lines[i] = newStr
@@ -34,7 +33,6 @@ def findAndReplaceLine(path, replace, old):
     Lines = readFile.readlines()
     for i in range(len(Lines)):
         if old == Lines[i].replace('\n', ''):
-
             print("REPLACING")
             newStr = Lines[i].replace(old, replace)
             Lines[i] = newStr

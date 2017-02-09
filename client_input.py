@@ -11,15 +11,15 @@ else:
 
 def Main():
     userInput = " "
-    id = 1
+    file_id = 1
     while userInput.lower() != "`exit":
         userInput = input(">>>>>> ")
         if userInput == "":
             continue
-        file = open((__dirPath + str(id) + ".ms"), 'w')
+        file = open((__dirPath + str(file_id) + ".ms"), 'w')
         file.write(userInput)
         file.close()
-        id+= 1
+        file_id+= 1
 
 
 
