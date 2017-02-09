@@ -5,25 +5,20 @@ Globals
 """
 with open("conn_info.txt", 'r') as file:
     lines = file.readlines()
-
     LISTEN_PORT = int(lines[1])
     SEND_PORT = int(lines[2])
-
     header = struct.Struct(lines[4])
     file.close()
 recv_buffer = {}  # socket ---> str
 send_buffer = {}  # socket ---> str
 Server_Messages = []
-
 Connected_Clients = {}  # socket ---> [socket, str]
 Rooms = {} #Room.roomName --> Room
 user_cache = {} #socketID -> string of cache
 
 
-
 def Main(listener):
     while True:  # probably add condition later
-
         r, w, e = next(selectGenerator())
 
         for sock in r:
@@ -43,7 +38,6 @@ def Main(listener):
                 #         break
                 ###Since recv_sock is not blocking in __output, outSock should be okay.
                 Connected_Clients[inSock] = [outSock, "", [False, 1], []]
-
                 recv_buffer[inSock] = None
                 sendStr = Server_Messages[0] + "\n" + Server_Messages[1] + "\n"+ Server_Messages[2]
                 send_buffer[outSock] = sendStr
@@ -121,29 +115,22 @@ def noneFilter(array):
     return returnList
 
 
-
 def createListenSocket():
     raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
     #raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     raw_socket.setblocking(0)
-
     raw_socket.bind(('', LISTEN_PORT))
-
     raw_socket.listen(5)
     return raw_socket
     # more will be added to the ssl socket for security purposes
 
 
-
 def selectGenerator():
     while True:  #probably add a condition later.
-
         inputSockets = list(Connected_Clients.keys())
         outputSockets = []
         for array in list(Connected_Clients.values()):
             outputSockets.append(array[0])
-
        # print(inputSockets, "\n", outputSockets)
         inputSockets2 = noneFilter(inputSockets)
         r, w, e = select.select(inputSockets2, noneFilter(outputSockets), inputSockets2)
@@ -270,7 +257,6 @@ def loadSendBuffer(ID):
             print("Before: ", Connected_Clients[ID])
             doNext = process_command(keyword, args, ID)
             print("generatorOut : ", doNext)
-
         elif Connected_Clients[ID][2][1] > 6: #user in a command
             int_to_str = {7: "name",
                           8: "password",
@@ -280,10 +266,8 @@ def loadSendBuffer(ID):
                           12: "see_room",
                           13: "whisper",
                           14: "broadcast",
-
                           15: "see_active",
                           16: "invite"}
-
             print(contentArray)
             args = contentArray[0].split(" ")
             print(args)
@@ -317,11 +301,8 @@ def loadSendBuffer(ID):
             print("Send Buffer: \n ", send_buffer)
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
-
 def process_command(keyword, args, ID):
-
     global user_cache, Connected_Clients, Server_Messages
-
     keyword = keyword.lower().strip()
     str_to_int = {"name": 7,
                   "password": 8,
@@ -330,13 +311,11 @@ def process_command(keyword, args, ID):
                   "see_perm":11,
                   "see_room":12,
                   "whisper": 13,
-
                   "broadcast": 14,
                   "see_active": 15,
                   "invite": 16}
 
     try:
-
         control = str_to_int[keyword]
     except KeyError:
         send_buffer[Connected_Clients[ID][0]] = Server_Messages[30]
@@ -375,9 +354,7 @@ def process_command(keyword, args, ID):
                 room.changeUser(Connected_Clients[ID][1], args[0])
             miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
             del currentUser, newUser_str, currentUser_str
-
             Connected_Clients[ID][1] = args[0]
-
             send_buffer[Connected_Clients[ID][0]] = toSend
             Connected_Clients[ID][2][1] = -1 #denotes done in function successfully
             return True
@@ -463,10 +440,10 @@ def process_command(keyword, args, ID):
                 target_room = user_cache[ID]["INVITATION"][0]
                 try:
                     Rooms[target_room].addMember(Connected_Clients[ID][1],
-                                             requester[0])
+                                                 user_cache[ID]["INVITATION"][1])
                 except PermissionError:  # Requester does not have the privilege to invite.
                     send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[40]
-                    send_buffer[Connected_Clients[ID][0]] = requester[0] + Server_Messages[39]
+                    send_buffer[Connected_Clients[ID][0]] = user_cache[ID]["INVITATION"][1] + Server_Messages[39]
                     Connected_Clients[ID][2][1] = -2  # Function will not continue executing.
                     del user_cache[ID]["INVITATION"]
                     return True
@@ -643,17 +620,17 @@ def process_command(keyword, args, ID):
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
                 Connected_Clients[ID][2][1] = control
                 return False
-        if len(args) == 1 and user_cache[ID]["ROOM"]:
+        elif len(args) == 1 and user_cache[ID]["ROOM"]:
             search_results = findClient(args[0])
             if not search_results[0]:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
                 Connected_Clients[ID][2][1] = control
                 return False
             user_cache[ID]["INVITE"] = (args[0], search_results[1])
-        if len(args) == 1:
+        elif len(args) == 1:
             at_least_1 = False
             if args[0] in Rooms:
-                user_cache[ID]["ROOMS"] = args[0]
+                user_cache[ID]["ROOM"] = args[0]
                 at_least_1 = True
             else:
                 search_results = findClient(args[0])
@@ -663,6 +640,7 @@ def process_command(keyword, args, ID):
             if not at_least_1:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[33]
                 Connected_Clients[ID][2][1] = -2 #Function not continuing
+                del user_cache[ID]["ROOM"], user_cache[ID]["INVITE"]
         if len(args) > 1:
             for argument in args:
                 if argument in Rooms:
@@ -685,7 +663,7 @@ def process_command(keyword, args, ID):
                 Connected_Clients[ID][2][1] = -2 #not continuing
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[34]
                 return True
-            if Connected_Clients[ID][2][1] >0:
+            if Connected_Clients[inv_ID][2][1] >0:
                 # Invitee is doing a command. Wait to send request
                 Connected_Clients[ID][2][1] = control
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[35]
@@ -704,21 +682,27 @@ def process_command(keyword, args, ID):
                 except KeyError:
                     pass
                 user_cache[inv_ID]["INVITATION"] = (inv_room, Connected_Clients[ID][1])
+                del user_cache[ID]["ROOM"], user_cache[ID]["INVITE"]
                 return True
         elif not user_cache[ID]["ROOM"]:
             print("IN THE NO ROOM PART")
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[43]
+            Connected_Clients[ID][2][1] = control
+            return False
         elif not user_cache[ID]["INVITE"]:
             print("INT THE NOT INVITE PART")
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[44]
+            Connected_Clients[ID][2][1] = control
+            return False
 
 
 
 def findClient(name):
     global Connected_Clients
-    for client, CC in Connected_Clients:
+    for client, CC in Connected_Clients.items():
         if CC[1] == name:
             return True, client
     return False, None
-
 
 if __name__ == "__main__":
     messageFile = open("Messages.txt", 'r')
@@ -726,19 +710,16 @@ if __name__ == "__main__":
     messageFile.close()
     for i in range(0, len(Server_Messages)):
         Server_Messages[i] = Server_Messages[i].replace('\n', '')
-
     Rooms = Room.LoadRooms()
-
     listSocket = createListenSocket()
-
     Connected_Clients[listSocket] = [None, "@@server", [False, 0]]
-
-    try:
-        Main(listSocket)
-    except ConnectionError as error:
-        print("There was a boo-boo: \n", error)
-
-    except KeyboardInterrupt:
-        #Shutdown Server correctly.....later
-        print("Server stopped.")
-
+    while True:
+        try:
+            Main(listSocket)
+        except ConnectionError as error:
+            print("There was a boo-boo: \n", error)
+            continue
+        except KeyboardInterrupt:
+            #Shutdown Server correctly.....later
+            print("Server stopped.")
+            break

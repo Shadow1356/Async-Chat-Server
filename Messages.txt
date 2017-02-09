@@ -41,3 +41,5 @@ Inviting
 You do not have High enough privilege to invite.
 Invitation Accepted.
 Invitation Declined.
+Enter a Room Name:
+Enter a Username:
