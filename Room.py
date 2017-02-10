@@ -99,8 +99,12 @@ class Room(object):
         miscellaneous.addToLine(self.__roomFile, 3, (user + ":"))
 
     def deleteMember(self, user, requester):
-        if not self.isPublic and requester not in self.Admins:
+        if user == requester: #user wants to remove himself
+            pass
+        elif not self.isPublic and requester not in self.Admins: #removing a different user requires permissions
             raise PermissionError
+        if not user in self.Members:
+            raise ValueError
         userIndex = self.Members.index(user)
         self.Members.pop(userIndex)
         miscellaneous.findAndReplace(self.__roomFile,":", (":"+user+":"))

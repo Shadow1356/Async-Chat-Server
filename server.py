@@ -86,9 +86,9 @@ def Main(listener):
             try:
             # Going to retry an operation
              #Add Timeout later.
-                print(user_cache[sock]["RETRY"])
+                print("User Retry Cache = ", user_cache[sock]["RETRY"])
             except KeyError:
-                pass
+                print("User Retry Cache is non-existant")
             else:
                 recv_buffer[sock][1] = ""
                 loadSendBuffer(sock)
@@ -267,7 +267,9 @@ def loadSendBuffer(ID):
                           13: "whisper",
                           14: "broadcast",
                           15: "see_active",
-                          16: "invite"}
+                          16: "invite",
+                          17: "leave",
+                          18: "make_owner"}
             print(contentArray)
             args = contentArray[0].split(" ")
             print(args)
@@ -313,7 +315,9 @@ def process_command(keyword, args, ID):
                   "whisper": 13,
                   "broadcast": 14,
                   "see_active": 15,
-                  "invite": 16}
+                  "invite": 16,
+                  "leave":  17,
+                  "make_owner": 18}
 
     try:
         control = str_to_int[keyword]
@@ -694,8 +698,193 @@ def process_command(keyword, args, ID):
             send_buffer[Connected_Clients[ID][0]] = Server_Messages[44]
             Connected_Clients[ID][2][1] = control
             return False
-
-
+    elif keyword == "leave":
+        try:
+            print(user_cache[ID]["LEAVE"])
+        except KeyError:
+            user_cache[ID]["LEAVE"] = ""
+        if len(args) == 0:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            Connected_Clients[ID][2][1] = control
+            return False
+        if user_cache[ID]["LEAVE"]:
+            #args[0] is a the new owner.
+            new_owner = findClient(args[0])
+            if not new_owner[0]:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+                Connected_Clients[ID][2][1] = -2 #Not continuing
+                return False
+            user_cache[new_owner[1]]["OFFER"] = (user_cache[ID]["LEAVE"],
+                                                 Connected_Clients[ID][1])
+            if Connected_Clients[new_owner[1]][2][1] < 0:
+                Connected_Clients[new_owner[1]][2][1] = str_to_int["make_owner"]
+                Connected_Clients[ID][2][1] = -1 #Done Correctly
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[49] +\
+                                                        Server_Messages[28]
+                return True
+            else: #User busy Wait to send offer
+                Connected_Clients[ID][2][1] = control
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[35]
+                user_cache[ID]["RETRY"] = True
+                return False
+        else:
+            if not args[0] in Rooms:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                Connected_Clients[ID][2][1] = -2 #Function will not continue
+                return True
+            if not Rooms[args[0]] in Connected_Clients[ID][3]:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[19]
+                Connected_Clients[ID][2][1] = -2 #not continuing
+                return True
+            room_index = Connected_Clients[ID][3].index(args[0])
+            if len(Rooms[args[0]].Members) == 0:
+                #User the only one in the room. Room Being Deleted.
+                Rooms[args[0]].deleteRoom(Connected_Clients[ID][1])
+                Connected_Clients[ID][3].pop(room_index)
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[45]
+                Connected_Clients[ID][2][1] = -1 #Function success
+                return True
+            if Connected_Clients[ID][1] == Rooms[args[0]].owner:
+                #Select a new owner
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[46]
+                Connected_Clients[ID][2][1] = control
+                user_cache[ID]["LEAVE"] = args[0]
+                return False
+            #Else, delete user.
+            pass
+    elif keyword == "make_owner":
+        try:
+            print(user_cache[ID]["OFFER"])
+        except KeyError:
+            pass
+        else: #Someone has offered to make him owner of a room
+            requester = findClient(user_cache[ID]["OFFER"][1])
+            if len(args) == 0:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                Connected_Clients[ID][2][1] = control
+                return False
+            if args[0] == "y":  # user will be new owner
+                target_room = user_cache[ID]["OFFER"][0]
+                try:
+                    Rooms[target_room].setOwner(Connected_Clients[ID][1],
+                                                 user_cache[ID]["OFFER"][1])
+                except PermissionError:  # Requester is not current owner.
+                    send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[40]
+                    send_buffer[Connected_Clients[ID][0]] = user_cache[ID]["OFFER"][1] + Server_Messages[39]
+                    Connected_Clients[ID][2][1] = -2  # Function will not continue executing.
+                    del user_cache[ID]["OFFER"]
+                    return True
+                else:
+                    send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[49]
+                    Connected_Clients[ID][3].append(Rooms[target_room])
+                    message = Server_Messages[51] + " " + target_room
+                    send_buffer[Connected_Clients[ID][0]] = message
+                    Connected_Clients[ID][2][1] = -1  # function executed successfully.
+                    del user_cache[ID]["OFFER"]
+                    return True
+            elif args[0] == "n":
+                send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[50]
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[50]
+                Connected_Clients[ID][2][1] = -1
+                del user_cache[ID]["INVITATION"]
+                return True
+            else:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                Connected_Clients[ID][2][1] = control
+                return False
+        try:
+            print(user_cache[ID]["BUYER"])
+        except KeyError:
+            user_cache[ID]["BUYER"] = ""
+        try:
+            print(user_cache[ID]["ROOM"])
+        except KeyError:
+            user_cache[ID]["ROOM"] = ""
+        if len(args) == 0:
+            Connected_Clients[ID][2][1] = control
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[32]
+            return False
+        if len(args) == 1 and user_cache[ID]["BUYER"]:
+            if args[0] in Rooms:
+                user_cache[ID]["ROOM"] = args[0]
+            else:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                Connected_Clients[ID][2][1] = control
+                return False
+        elif len(args) == 1 and user_cache[ID]["ROOM"]:
+            search_results = findClient(args[0])
+            if not search_results[0]:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+                Connected_Clients[ID][2][1] = control
+                return False
+            user_cache[ID]["BUYER"] = (args[0], search_results[1])
+        elif len(args) == 1:
+            at_least_1 = False
+            if args[0] in Rooms:
+                user_cache[ID]["ROOM"] = args[0]
+                at_least_1 = True
+            else:
+                search_results = findClient(args[0])
+                if search_results[0]:
+                    user_cache[ID]["BUYER"] = (args[0], search_results[1])
+                    at_least_1 = True
+            if not at_least_1:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[33]
+                Connected_Clients[ID][2][1] = -2  # Function not continuing
+                del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
+        if len(args) > 1:
+            for argument in args:
+                if argument in Rooms:
+                    user_cache[ID]["ROOM"] = argument
+                else:
+                    search_results = findClient(argument)
+                    if search_results[0]:
+                        user_cache[ID]["BUYER"] = (argument, search_results[1])
+        if user_cache[ID]["BUYER"] and user_cache[ID]["ROOM"]:
+            inv_ID = user_cache[ID]["BUYER"][1]
+            inv_room = user_cache[ID]["ROOM"]
+            inv_name = user_cache[ID]["BUYER"][0]
+            if Rooms[inv_room] in Connected_Clients[inv_ID][3]:
+                del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
+                Connected_Clients[ID][2][1] = -2  # function not continuing
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[31]
+                return True
+            if not Connected_Clients[inv_ID][2][0]:
+                del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
+                Connected_Clients[ID][2][1] = -2  # not continuing
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[34]
+                return True
+            if Connected_Clients[inv_ID][2][1] > 0:
+                # Invitee is doing a command. Wait to send request
+                Connected_Clients[ID][2][1] = control
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[35]
+                user_cache[ID]["RETRY"] = True
+                return False
+            else:
+                inviteMessage = Connected_Clients[ID][1] + Server_Messages[47] \
+                                + inv_room + "\n" + Server_Messages[37]
+                senderMessage = Server_Messages[48] + inv_name + Server_Messages[28]
+                send_buffer[Connected_Clients[inv_ID][0]] = inviteMessage
+                send_buffer[Connected_Clients[ID][0]] = senderMessage
+                Connected_Clients[ID][2][1] = -1  # FUnction done successfully
+                Connected_Clients[inv_ID][2][1] = control
+                try:
+                    del user_cache[ID]["RETRY"]
+                except KeyError:
+                    pass
+                user_cache[inv_ID]["OFFER"] = (inv_room, Connected_Clients[ID][1])
+                del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
+                return True
+        elif not user_cache[ID]["ROOM"]:
+            print("IN THE NO ROOM PART")
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[43]
+            Connected_Clients[ID][2][1] = control
+            return False
+        elif not user_cache[ID]["BUYER"]:
+            print("INT THE NOT BUYER PART")
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[44]
+            Connected_Clients[ID][2][1] = control
+            return False
 
 def findClient(name):
     global Connected_Clients
