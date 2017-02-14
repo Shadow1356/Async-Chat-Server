@@ -57,11 +57,17 @@ class Room(object):
     def setOwner(self, newOwner, requester):
         if requester != self.owner:
             raise PermissionError
+        #adds current owner to admin line in roomFile
+        miscellaneous.addToLine(self.__roomFile, 4, (self.owner + ":"))
         self.owner = newOwner
         if self.owner not in self.Members:
             self.Members.append(self.owner)
+        else:
+            miscellaneous.findAndReplace(self.__roomFile, ":", (":" + self.owner + ":"))
         if self.owner not in self.Admins:
             self.Admins.append(self.owner)
+        else:
+            miscellaneous.findAndReplace(self.__roomFile, ":", (":" + self.owner + ":"))
         # set file
         miscellaneous.replaceLine(self.__roomFile, 2, self.owner)
 
@@ -76,7 +82,7 @@ class Room(object):
         miscellaneous.addToLine(self.__roomFile, 4, (user + ":"))
 
     def deleteAdmin(self, admin, requester):
-        if requester != self.owner:
+        if requester != self.owner and requester != admin:
             raise PermissionError
         if not admin in self.Admins:
             raise ValueError
@@ -90,7 +96,7 @@ class Room(object):
         indexPath = self.__roomDirPath + "__index__.txt"
         miscellaneous.findAndReplaceLine(indexPath, "", self.roomName)
         os.remove(self.__roomFile)
-        del self.roomName, self.Admins, self.Members, self.isPublic, self.owner, self.roomName
+        del self.roomName, self.Admins, self.Members, self.isPublic, self.owner
 
     def addMember(self, user, requester):
         if not self.isPublic and requester not in self.Admins:
@@ -99,9 +105,8 @@ class Room(object):
         miscellaneous.addToLine(self.__roomFile, 3, (user + ":"))
 
     def deleteMember(self, user, requester):
-        if user == requester: #user wants to remove himself
-            pass
-        elif not self.isPublic and requester not in self.Admins: #removing a different user requires permissions
+        # removing a different user requires permissions
+        if user != requester and not self.isPublic and requester not in self.Admins:
             raise PermissionError
         if not user in self.Members:
             raise ValueError

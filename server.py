@@ -18,6 +18,7 @@ user_cache = {} #socketID -> string of cache
 
 
 def Main(listener):
+    global log, recv_buffer, send_buffer, Server_Messages, Connected_Clients, Rooms, user_cache
     while True:  # probably add condition later
         r, w, e = next(selectGenerator())
 
@@ -128,6 +129,7 @@ def createListenSocket():
 
 
 def selectGenerator():
+    global Connected_Clients
     while True:  #probably add a condition later.
         inputSockets = list(Connected_Clients.keys())
         outputSockets = []
@@ -140,6 +142,7 @@ def selectGenerator():
         yield r, w, e
 
 def loadSendBuffer(ID):
+    global log, recv_buffer, send_buffer, Server_Messages, Connected_Clients, Rooms, user_cache
     contentArray = recv_buffer[ID][1].split(":`:")
     if not Connected_Clients[ID][2][0]: #not yet authenticated.
         if Connected_Clients[ID][2][1] == 0: # send pre-loaded menu screen to user.
@@ -307,7 +310,7 @@ def loadSendBuffer(ID):
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
 def process_command(keyword, args, ID):
-    global user_cache, Connected_Clients, Server_Messages
+    global user_cache, Connected_Clients, Server_Messages, log, send_buffer, Rooms
     keyword = keyword.lower().strip()
     str_to_int = {"name": 7,
                   "password": 8,
@@ -736,15 +739,12 @@ def process_command(keyword, args, ID):
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
                 Connected_Clients[ID][2][1] = -2 #Function will not continue
                 return True
-            if not Rooms[args[0]] in Connected_Clients[ID][3]:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[19]
-                Connected_Clients[ID][2][1] = -2 #not continuing
-                return True
-            room_index = Connected_Clients[ID][3].index(args[0])
-            if len(Rooms[args[0]].Members) == 0:
+            CC_room_index = Connected_Clients[ID][3].index(Rooms[args[0]])
+            if len(Rooms[args[0]].Members) == 1:
                 #User the only one in the room. Room Being Deleted.
                 Rooms[args[0]].deleteRoom(Connected_Clients[ID][1])
-                Connected_Clients[ID][3].pop(room_index)
+                del Rooms[args[0]]
+                Connected_Clients[ID][3].pop(CC_room_index)
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[45]
                 Connected_Clients[ID][2][1] = -1 #Function success
                 return True
@@ -755,7 +755,22 @@ def process_command(keyword, args, ID):
                 user_cache[ID]["LEAVE"] = args[0]
                 return False
             #Else, delete user.
-            pass
+            try:
+                Rooms[args[0]].deleteAdmin(Connected_Clients[ID][1], Connected_Clients[ID][1])
+            except ValueError:
+                pass #User is not necessarily an admin.
+            try:
+                Rooms[args[0]].deleteMember(Connected_Clients[ID][1], Connected_Clients[ID][1])
+            except ValueError: #user is not in the room
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[19]
+                Connected_Clients[ID][2][1] = -2 #not continuing
+                return True
+            else:
+                del Rooms[args[0]]
+                Connected_Clients[ID][3].pop(CC_room_index)
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[53]
+                Connected_Clients[ID][2][1] = -1 #Function success
+                return True
     elif keyword == "make_owner":
         try:
             log.debug(user_cache[ID]["OFFER"])
@@ -790,7 +805,7 @@ def process_command(keyword, args, ID):
                 send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[50]
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[50]
                 Connected_Clients[ID][2][1] = -1
-                del user_cache[ID]["INVITATION"]
+                del user_cache[ID]["OFFER"]
                 return True
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
@@ -848,11 +863,6 @@ def process_command(keyword, args, ID):
             inv_ID = user_cache[ID]["BUYER"][1]
             inv_room = user_cache[ID]["ROOM"]
             inv_name = user_cache[ID]["BUYER"][0]
-            if Rooms[inv_room] in Connected_Clients[inv_ID][3]:
-                del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
-                Connected_Clients[ID][2][1] = -2  # function not continuing
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[31]
-                return True
             if not Connected_Clients[inv_ID][2][0]:
                 del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
                 Connected_Clients[ID][2][1] = -2  # not continuing
