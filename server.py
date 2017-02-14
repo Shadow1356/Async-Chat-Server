@@ -173,9 +173,17 @@ def loadSendBuffer(ID):
                 if found: break
             del lines
             if found:
-                Connected_Clients[ID][2][1] = 4
-                Connected_Clients[ID][1] = name
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[5]
+                unique_check = findClient(name)
+                log.debug("Unique Check: ", unique_check)
+                if unique_check[0]:
+                    message = Server_Messages[54] +"\n\n" + Server_Messages[1]\
+                              + "\n"+ Server_Messages[2]
+                    send_buffer[Connected_Clients[ID][0]] = message
+                    Connected_Clients[ID][2][1] = 1
+                else:
+                    Connected_Clients[ID][2][1] = 4
+                    Connected_Clients[ID][1] = name
+                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[5]
             else:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
 
