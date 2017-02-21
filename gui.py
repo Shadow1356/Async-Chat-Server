@@ -54,10 +54,13 @@ class ClientGUI(threading.Thread):
         self.root.config(menu=self.menuBar)
         self.root.bind_all("<Button-1>", self.__printxy)
         self.root.bind_all("<Return>", self.EnterAction)
+        self.root.protocol("WM_DELETE_WINDOW", self.__signalEnd)
         self.root.after(1, self.__update_output)
         self.root.mainloop()
 
-
+    def __signalEnd(self):
+        self.done = True
+        self.root.destroy()
 
     def __printxy(self, event):
         print(event.x, " ", event.y)
@@ -72,14 +75,18 @@ class Client(threading.Thread):
 
     def run(self):
         while True:
-            if self.sender.done:
+            if self.sender.done: #doesn't work yet.
                 self.receiver.done = True
                 self.client_gui.done = True
+                break
+            if self.client_gui.done:
+                self.receiver.done = True
+                self.sender.done = True
                 break
             if not self.receiver.q.empty():
                 srv_message = self.receiver.q.get(block=False)
                 print("Stuff in receiver's Q")
-                self.client_gui.outQ.put(srv_message)
+                self.client_gui.outQ.put_nowait(srv_message)
             if not self.client_gui.inQ.empty():
                 toSend = self.client_gui.inQ.get(block = False)
                 self.sender.q.put_nowait(toSend)

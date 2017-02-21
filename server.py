@@ -1,5 +1,6 @@
-﻿import select, socket, Room, struct,  miscellaneous, Logger, time
-
+﻿import select, socket, Room, struct,  miscellaneous, Logger
+from copy import deepcopy
+from time import strftime
 """
 Globals
 """
@@ -7,7 +8,7 @@ with open("conn_info.txt", 'r') as file:
     lines = file.readlines()
     LISTEN_PORT = int(lines[1])
     SEND_PORT = int(lines[2])
-    header = struct.Struct(lines[4])
+    header = struct.Struct(lines[3])
     file.close()
 recv_buffer = {}  # socket ---> str
 send_buffer = {}  # socket ---> str
@@ -283,7 +284,8 @@ def loadSendBuffer(ID):
                           16: "invite",
                           17: "leave",
                           18: "make_owner",
-                          19: "log_out"}
+                          19: "log_out",
+                          20: "delete_account"}
             log.debug(contentArray)
             args = contentArray[0].split(" ")
             log.debug(args)
@@ -315,7 +317,10 @@ def loadSendBuffer(ID):
                         if Connected_Clients[inClient][2][0] and Rooms[contentArray[1]] in Connected_Clients[inClient][3]:
                             send_buffer[Connected_Clients[inClient][0]] = fullText
             log.debug("Send Buffer: \n ", send_buffer)
-    recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
+    try:
+        log.debug(user_cache[ID]["MASS_DELETE"])
+    except KeyError:
+        recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
 def process_command(keyword, args, ID):
     global user_cache, Connected_Clients, Server_Messages, log, send_buffer, Rooms
@@ -332,7 +337,8 @@ def process_command(keyword, args, ID):
                   "invite": 16,
                   "leave":  17,
                   "make_owner": 18,
-                  "log_out": 19}
+                  "log_out": 19,
+                  "delete_account": 20}
 
     try:
         control = str_to_int[keyword]
@@ -919,6 +925,48 @@ def process_command(keyword, args, ID):
         send_buffer[Connected_Clients[ID][0]] = sendStr
         user_cache[ID] = {}
         return True
+    elif keyword == "delete_account":
+        #Confirm the the user really wants this.
+        try:
+            log.debug(user_cache[ID]["DELETE"])
+        except KeyError:
+            send_buffer[Connected_Clients[ID][0]] = Server_Messages[55] + Server_Messages[56]
+            Connected_Clients[ID][2][1] = control
+            user_cache[ID]["DELETE"] = True
+        else:
+            try:
+                log.debug(user_cache[ID]["MASS_DELETE"])
+            except KeyError:
+                # args[0] should be y/n
+                if args[0] == 'y':
+                    # Erase User from Users.txt
+                    with open("users.txt", 'r') as file:
+                        lines = file.readlines()
+                        file.close()
+                    lineNumber = -1
+                    for l in lines:
+                        fullUser = l.partition(":")
+                        if fullUser[0] == Connected_Clients[ID][1]:
+                            lineNumber = lines.index(l)
+                            break
+                    del lines, fullUser
+                    miscellaneous.replaceLine("users.txt", lineNumber + 1, "")
+                elif args[0] == 'n':
+                    del user_cache[ID]["DELETE"]
+                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[57]
+                    Connected_Clients[ID][2][1] = -1  # Function Done successfully
+                    return True
+                else:
+                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                    Connected_Clients[ID][2][1] = control
+                    return False
+                user_cache[ID]["MASS_DELETE"] = True
+            finally:
+                # Remove from every Room
+                room = Connected_Clients[ID][3].pop()
+                send_back = "`leave " + room.roomName
+                recv_buffer[ID] = send_back
+
 
 def findClient(name):
     global Connected_Clients
@@ -928,7 +976,7 @@ def findClient(name):
     return False, None
 
 if __name__ == "__main__":
-    logName = "Logs\\"+time.strftime("%d%m%Y%H%M%S") + ".log"
+    logName = "Logs\\"+strftime("%d%m%Y%H%M%S") + ".log"
     log = Logger.Logger(logName)
     messageFile = open("Messages.txt", 'r')
     Server_Messages = messageFile.readlines()
