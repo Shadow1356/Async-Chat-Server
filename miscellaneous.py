@@ -4,13 +4,14 @@ not really belonging to one aspect of the program.
 """
 
 def replaceLine(path, line, string): #replaces the line-th line with string in file:path (line : 1,2,3)
-    readFile = open(path, 'r+')
+    readFile = open(path, 'r')
     Lines = readFile.readlines()
     Lines[line-1] = string+'\n'
-    readFile.seek(0)
-    for elem in Lines:
-        readFile.write(elem)
     readFile.close()
+    writeFile = open(path, 'w')
+    for elem in Lines:
+        writeFile.write(elem)
+    writeFile.close()
     cleanNewLines(path)
 
 def findAndReplace(path, replace, old):#locates old and replaces it with replace
@@ -70,4 +71,4 @@ if __name__ == "__main__":
     # replaceLine("Messages.txt", 1, "Test")
     # findAndReplace("Messages.txt", "Test", "Welcome")
    # addToLine("Messages.txt", 2, " Test")
-   cleanNewLines("users.txt")
+   replaceLine("users.txt", 4, "")

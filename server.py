@@ -317,10 +317,8 @@ def loadSendBuffer(ID):
                         if Connected_Clients[inClient][2][0] and Rooms[contentArray[1]] in Connected_Clients[inClient][3]:
                             send_buffer[Connected_Clients[inClient][0]] = fullText
             log.debug("Send Buffer: \n ", send_buffer)
-    try:
-        log.debug(user_cache[ID]["MASS_DELETE"])
-    except KeyError:
-        recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
+
+    recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
 def process_command(keyword, args, ID):
     global user_cache, Connected_Clients, Server_Messages, log, send_buffer, Rooms
@@ -734,7 +732,7 @@ def process_command(keyword, args, ID):
             if not new_owner[0]:
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
                 Connected_Clients[ID][2][1] = -2 #Not continuing
-                return False
+                return True
             user_cache[new_owner[1]]["OFFER"] = (user_cache[ID]["LEAVE"],
                                                  Connected_Clients[ID][1])
             if Connected_Clients[new_owner[1]][2][1] < 0:
@@ -768,7 +766,7 @@ def process_command(keyword, args, ID):
                 Connected_Clients[ID][2][1] = control
                 user_cache[ID]["LEAVE"] = args[0]
                 return False
-            #Else, delete user.
+            #Else, delete user from room.
             try:
                 Rooms[args[0]].deleteAdmin(Connected_Clients[ID][1], Connected_Clients[ID][1])
             except ValueError:
@@ -780,7 +778,6 @@ def process_command(keyword, args, ID):
                 Connected_Clients[ID][2][1] = -2 #not continuing
                 return True
             else:
-                del Rooms[args[0]]
                 Connected_Clients[ID][3].pop(CC_room_index)
                 send_buffer[Connected_Clients[ID][0]] = Server_Messages[53]
                 Connected_Clients[ID][2][1] = -1 #Function success
@@ -923,7 +920,7 @@ def process_command(keyword, args, ID):
         sendStr = Server_Messages[52] +"\n\n" + Server_Messages[1]\
                   + "\n"+ Server_Messages[2]
         send_buffer[Connected_Clients[ID][0]] = sendStr
-        user_cache[ID] = {}
+        del user_cache[ID]
         return True
     elif keyword == "delete_account":
         #Confirm the the user really wants this.
@@ -934,38 +931,44 @@ def process_command(keyword, args, ID):
             Connected_Clients[ID][2][1] = control
             user_cache[ID]["DELETE"] = True
         else:
-            try:
-                log.debug(user_cache[ID]["MASS_DELETE"])
-            except KeyError:
-                # args[0] should be y/n
-                if args[0] == 'y':
-                    # Erase User from Users.txt
-                    with open("users.txt", 'r') as file:
-                        lines = file.readlines()
-                        file.close()
-                    lineNumber = -1
-                    for l in lines:
-                        fullUser = l.partition(":")
-                        if fullUser[0] == Connected_Clients[ID][1]:
-                            lineNumber = lines.index(l)
-                            break
-                    del lines, fullUser
-                    miscellaneous.replaceLine("users.txt", lineNumber + 1, "")
-                elif args[0] == 'n':
-                    del user_cache[ID]["DELETE"]
-                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[57]
-                    Connected_Clients[ID][2][1] = -1  # Function Done successfully
+            user_cache[ID]["MASS_DELETE"] = True
+            local_copy = deepcopy(Connected_Clients[ID][3])
+            for room in local_copy:
+                process_command("leave", [room.roomName], ID)
+                if Connected_Clients[ID][2][1] == -2:
+                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[59]
                     return True
-                else:
-                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
-                    Connected_Clients[ID][2][1] = control
-                    return False
-                user_cache[ID]["MASS_DELETE"] = True
-            finally:
-                # Remove from every Room
-                room = Connected_Clients[ID][3].pop()
-                send_back = "`leave " + room.roomName
-                recv_buffer[ID] = send_back
+            # args[0] should be y/n
+            if args[0] == 'y':
+                # Erase User from Users.txt
+                with open("users.txt", 'r') as file:
+                    lines = file.readlines()
+                    file.close()
+                lineNumber = -1
+                for l in lines:
+                    fullUser = l.partition(":")
+                    if fullUser[0] == Connected_Clients[ID][1]:
+                        lineNumber = lines.index(l)
+                        break
+                del lines, fullUser
+                miscellaneous.replaceLine("users.txt", lineNumber + 1, "")
+            elif args[0] == 'n':
+                del user_cache[ID]["DELETE"], user_cache[ID]["MASS_DELETE"]
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[57]
+                Connected_Clients[ID][2][1] = -1  # Function Done successfully
+                return True
+            else:
+                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                Connected_Clients[ID][2][1] = control
+                return False
+            Connected_Clients[ID][1] = ""  # Reset Username
+            Connected_Clients[ID][2] = [False, 1]  # Not authenticated
+            recv_buffer[ID] = None
+            sendStr = Server_Messages[52] + "\n\n" + Server_Messages[1] \
+                      + "\n" + Server_Messages[2]
+            send_buffer[Connected_Clients[ID][0]] = sendStr
+            del user_cache[ID]
+            return True
 
 
 def findClient(name):

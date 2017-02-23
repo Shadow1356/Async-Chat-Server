@@ -65,13 +65,12 @@ class ClientGUI(threading.Thread):
     def __printxy(self, event):
         print(event.x, " ", event.y)
 
-class Client(threading.Thread):
+class Client_Handler(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.sender = client2.Sender()
         self.receiver = client2.Receiver()
         self.client_gui = ClientGUI()
-        self.q = queue.Queue()
 
     def run(self):
         while True:
@@ -93,18 +92,13 @@ class Client(threading.Thread):
 
 
     def connect(self):
-        self.sender.start()
-        self.receiver.start()
-        self.client_gui.start()
-        self.start()
-        self.sender.join()
-        self.receiver.join()
-        self.client_gui.join()
-        self.join()
-
+        threads = [self.sender, self.receiver, self.client_gui, self]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
 
 
 if __name__ == "__main__":
-    Window = Client()
-
+    Window = Client_Handler()
     Window.connect()
