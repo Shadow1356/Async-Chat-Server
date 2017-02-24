@@ -4,10 +4,12 @@ class Receiver(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         with open("conn_info.txt") as file:
-            self.IP, _, self.port, _ = file.readlines()
+            self.IP, _, self.port, h = file.readlines()
             file.close()
+        self.header = struct.Struct(h)
         self.done = False
         self.q = queue.Queue()
+        self.__unfinishedMessage = ""
         self.raw_socket = socket.socket(socket.AF_INET,
                                         socket.SOCK_STREAM)
         self.raw_socket.setsockopt(socket.SOL_SOCKET,
@@ -32,7 +34,12 @@ class Receiver(threading.Thread):
             except BlockingIOError:
                 continue
             if message:
-                self.q.put_nowait(message.decode("ascii"))
+                sizeOfMessage = self.header.unpack(message[0:self.header.size])[0]
+                receivedMessage = message[self.header.size:].decode('ascii')
+                self.__unfinishedMessage += receivedMessage
+                if sizeOfMessage == len(self.__unfinishedMessage):
+                    self.q.put_nowait(self.__unfinishedMessage)
+                    self.__unfinishedMessage = ""
                 message = ""
         self.recv_sock.close()
         self.raw_socket.close()
