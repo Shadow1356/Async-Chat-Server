@@ -79,7 +79,8 @@ def Main(listener):
         for sock in w:
             try:
                 if send_buffer[sock]:
-                    toSend = send_buffer[sock].encode('ascii')
+                    message_toSend = send_buffer[sock].encode('ascii')
+                    toSend = header.pack(len(message_toSend)) + message_toSend
                     sock.sendall(toSend)
                     send_buffer[sock] = None
                     log.debug(toSend, " sent to ", sock.getpeername())
