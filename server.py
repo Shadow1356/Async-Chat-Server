@@ -42,7 +42,8 @@ def Main(listener):
                 Connected_Clients[inSock] = [outSock, "", [False, 1], []]
                 recv_buffer[inSock] = None
                 sendStr = Server_Messages[0] + "\n" + Server_Messages[1] + "\n"+ Server_Messages[2]
-                send_buffer[outSock] = sendStr
+                send_buffer[outSock] = formatMessage(Server_Messages[0], "Q",
+                                                     ["Log in", "Create New Account"])
                 user_cache[inSock] = {} # for the command processing generator.
             else: #receive from socket
                 try:
@@ -153,13 +154,13 @@ def loadSendBuffer(ID):
             try:
                 choice = int(contentArray[0])
             except ValueError:
-                sendStr = Server_Messages[11]  # "Invalid Response"
+                sendStr = formatMessage(Server_Messages[11], "E")  # "Invalid Response"
             else:
                 log.debug("Choice = ", choice)
                 if not choice in [0, 1]:
-                    sendStr = Server_Messages[11]
+                    sendStr = formatMessage(Server_Messages[11], "E")
                 else:
-                    sendStr = Server_Messages[choice+3] # 3 if 0, 4 if 1.
+                    sendStr = formatMessage(Server_Messages[choice+3], "M") # 3 if 0, 4 if 1.
                     Connected_Clients[ID][2][1] += choice + 1
             send_buffer[Connected_Clients[ID][0]] = sendStr
 
@@ -178,16 +179,15 @@ def loadSendBuffer(ID):
                 unique_check = findClient(name)
                 log.debug("Unique Check: ", unique_check)
                 if unique_check[0]:
-                    message = Server_Messages[54] +"\n\n" + Server_Messages[1]\
-                              + "\n"+ Server_Messages[2]
-                    send_buffer[Connected_Clients[ID][0]] = message
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[54], "Q",
+                                                                          ["Log in", "Create New User"])
                     Connected_Clients[ID][2][1] = 1
                 else:
                     Connected_Clients[ID][2][1] = 4
                     Connected_Clients[ID][1] = name
-                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[5]
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[5], "M")
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[8], "E")
 
         elif Connected_Clients[ID][2][1] == 3: #Create New User
             # user should be giving a new username
@@ -201,10 +201,10 @@ def loadSendBuffer(ID):
                 if found: break
             del lines
             if found:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[12]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[12], "E")
             else:
                 Connected_Clients[ID][2][1] = 5
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[13]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[13], "M")
                 with open("users.txt", 'a') as file:
                     file.write("\n" + name)
                     file.close()
@@ -222,7 +222,7 @@ def loadSendBuffer(ID):
                     break
             del lines
             if password == fullUser[2].replace("\n", ""): #password correct, user fully authenticated.
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[7]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[7], "M")
                 Connected_Clients[ID][2][0] = True
                 Connected_Clients[ID][2][1] = -1
                 for room in Rooms: #Load the rooms that the user is in.
@@ -230,13 +230,13 @@ def loadSendBuffer(ID):
                         log.debug(Rooms[room])
                         Connected_Clients[ID][3].append(Rooms[room])
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[10] #Add counter later for limited number of attempts.
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[10], "E") #Add counter later for limited number of attempts.
         elif Connected_Clients[ID][2][1] == 5: #Create a new password.
             password = contentArray[0]
             formatPassword = Connected_Clients[ID][1] + ":" + password
             miscellaneous.findAndReplace("users.txt", formatPassword, Connected_Clients[ID][1])
             Connected_Clients[ID][2][1] = 6
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[6]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[6], "M")
         elif Connected_Clients[ID][2][1] == 6: #Confirm the new password
             password = contentArray[0]
             with open("users.txt", 'r') as file:
@@ -251,13 +251,14 @@ def loadSendBuffer(ID):
             log.debug("Password = ", password)
             log.debug("checking against = ", fullUser[2].replace("\n", ""))
             if password == fullUser[2].replace("\n", ""): #password matches, user fully authenticated.
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[14] + '\n' + Server_Messages[7]
+                msg = Server_Messages[14] + '\n' + Server_Messages[7]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(msg, "M")
                 Connected_Clients[ID][2][0] = True
                 Connected_Clients[ID][2][1] = -1
                 Connected_Clients[ID][3].append(Rooms["@@broadcast@@"])
                 Connected_Clients[ID][3][0].addMember(Connected_Clients[ID][1], "@@server")
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[15] #Add timeout.
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[15], "E") #Add timeout.
             miscellaneous.cleanNewLines("users.txt")
 
     else:
@@ -300,24 +301,28 @@ def loadSendBuffer(ID):
                            + Connected_Clients[Target][1] + ": " \
                            + contentArray[0]
                 if Connected_Clients[Target][2][0]: #check if user validated
-                    send_buffer[Connected_Clients[Target][0]] = fullText
-                    send_buffer[Connected_Clients[ID][0]] = fullText
+                    color = getColor(Connected_Clients[ID][1])
+                    toWhisper = formatMessage(fullText, "W", [color])
+                    send_buffer[Connected_Clients[Target][0]] = toWhisper
+                    send_buffer[Connected_Clients[ID][0]] = toWhisper
                 else:
-                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[9]
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[34], "E")
             except KeyError: #not whispering
                 #validate room first
                 if not contentArray[1] in Rooms: #room doesn't exist
-                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18],"E")
                 elif not Connected_Clients[ID][1] in Rooms[contentArray[1]].Members: #user not in room
-                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[19]
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[19], "E")
                 else:
-                    fullText = contentArray[1] + ":" + Connected_Clients[ID][1] + ": " + contentArray[0]
+                    text = contentArray[1] + ":" + Connected_Clients[ID][1] + ": " + contentArray[0]
+                    add_args = [getColor(Connected_Clients[ID][1]), getColor(contentArray[1])]
+                    fullText = formatMessage(text, "C", add_args)
                     for inClient in Connected_Clients:
                         # check if user is validated and in the room, before sending output.
                         # Remove second check? Checked Above?
                         if Connected_Clients[inClient][2][0] and Rooms[contentArray[1]] in Connected_Clients[inClient][3]:
                             send_buffer[Connected_Clients[inClient][0]] = fullText
-            log.debug("Send Buffer: \n ", send_buffer)
+            log.debug("Send Buffer: \n ", send_buffer) #<---Could prove costly, probably remove or change.
 
     recv_buffer[ID] = None  # empty the buffer. transferred to send buffer
 
@@ -342,12 +347,12 @@ def process_command(keyword, args, ID):
     try:
         control = str_to_int[keyword]
     except KeyError:
-        send_buffer[Connected_Clients[ID][0]] = Server_Messages[30]
+        send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[30], "E")
         Connected_Clients[ID][2][1] = -2 # not continuing.
         return True
     if keyword == "name":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[4], "M")
             Connected_Clients[ID][2][1] = control #7
             return False
         with open("users.txt", 'r') as file:
@@ -365,7 +370,7 @@ def process_command(keyword, args, ID):
         if found:
             del currentUser
             Connected_Clients[ID][2][1] = control
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[12]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[12], "E")
             return False
         else:
             toSend = Server_Messages[16] + " " + args[0]
@@ -379,12 +384,12 @@ def process_command(keyword, args, ID):
             miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
             del currentUser, newUser_str, currentUser_str
             Connected_Clients[ID][1] = args[0]
-            send_buffer[Connected_Clients[ID][0]] = toSend
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(toSend, "M")
             Connected_Clients[ID][2][1] = -1 #denotes done in function successfully
             return True
     elif keyword == "password": #Add security/Multistep password Reset later
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[13]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[13], "M")
             Connected_Clients[ID][2][1] = control
             return False
         # change the user's password
@@ -404,7 +409,7 @@ def process_command(keyword, args, ID):
         log.debug(newUser_str)
         miscellaneous.findAndReplace("users.txt", newUser_str, currentUser_str)
         del currentUser, newUser_str, currentUser_str
-        send_buffer[Connected_Clients[ID][0]] = Server_Messages[17]
+        send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[17], "M")
         Connected_Clients[ID][2][1] = -1 #successfully done with function
         return True
     elif keyword == "new_room": # do invite lists later
@@ -426,11 +431,12 @@ def process_command(keyword, args, ID):
             elif not user_cache[ID]["NAME"]:
                 user_cache[ID]["NAME"] = a
         if not user_cache[ID]["PERM"]:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[22]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[22], "Q",
+                                                                  ["Public", "Private"])
             Connected_Clients[ID][2][1] = control
             return False
         if not user_cache[ID]["NAME"]:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
             Connected_Clients[ID][2][1] = control
             return False
         # Try to make the room
@@ -439,13 +445,13 @@ def process_command(keyword, args, ID):
             newRoom = Room.Room(user_cache[ID]["NAME"], perm_dict[user_cache[ID]["PERM"]], Connected_Clients[ID][1], False)
         except FileExistsError:
             user_cache[ID]["NAME"] = ""
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[23]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[23], "E")
             Connected_Clients[ID][2][1] = control
             return False
         else:
             Rooms[newRoom.roomName] = newRoom
             Connected_Clients[ID][3].append(newRoom)
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[24]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[24], "M")
             Connected_Clients[ID][2][1] = -1 # done
             del user_cache[ID]["NAME"], user_cache[ID]["PERM"] #Add invites later
             return True
@@ -457,7 +463,7 @@ def process_command(keyword, args, ID):
         else: #USer has a pending invitation
             requester = findClient(user_cache[ID]["INVITATION"][1])
             if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[11], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
             if args[0] == "y": #user will be joining
@@ -466,61 +472,63 @@ def process_command(keyword, args, ID):
                     Rooms[target_room].addMember(Connected_Clients[ID][1],
                                                  user_cache[ID]["INVITATION"][1])
                 except PermissionError:  # Requester does not have the privilege to invite.
-                    send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[40]
-                    send_buffer[Connected_Clients[ID][0]] = user_cache[ID]["INVITATION"][1] + Server_Messages[39]
+                    send_buffer[Connected_Clients[requester[1]][0]] = formatMessage(Server_Messages[40], "E")
+                    send_back = formatMessage(user_cache[ID]["INVITATION"][1] + Server_Messages[39], "E")
+                    send_buffer[Connected_Clients[ID][0]] = send_back
                     Connected_Clients[ID][2][1] = -2  # Function will not continue executing.
                     del user_cache[ID]["INVITATION"]
                     return True
                 else:
-                    send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[41]
+                    send_buffer[Connected_Clients[requester[1]][0]] = formatMessage(Server_Messages[41], "M")
                     Connected_Clients[ID][3].append(Rooms[target_room])
                     message = Server_Messages[25] + " " + target_room
-                    send_buffer[Connected_Clients[ID][0]] = message
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(message, "M")
                     Connected_Clients[ID][2][1] = -1  # function executed successfully.
                     del user_cache[ID]["INVITATION"]
                     return True
             elif args[0] == "n":
-                send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[42]
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[42]
+                dec_message = formatMessage(Server_Messages[42], "M")
+                send_buffer[Connected_Clients[requester[1]][0]] = dec_message
+                send_buffer[Connected_Clients[ID][0]] = dec_message
                 Connected_Clients[ID][2][1] = -1
                 del user_cache[ID]["INVITATION"]
                 return True
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[11], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
 
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18], "E")
             Connected_Clients[ID][2][1] = -2 #function will not be continuing
             return True
         if Rooms[args[0]] in Connected_Clients[ID][3]: # user already in room
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[31]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[31], "M")
             Connected_Clients[ID][2][1] = -2 # not continuing
             return True
         try:
             Rooms[args[0]].addMember(Connected_Clients[ID][1], Connected_Clients[ID][1])
         except PermissionError: #Room is private.
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[20]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[20], "E")
             Connected_Clients[ID][2][1] = -2 #Function will not continue executing.
             return True
         else:
             Connected_Clients[ID][3].append(Rooms[args[0]])
             message = Server_Messages[25] + " " + args[0]
-            send_buffer[Connected_Clients[ID][0]] = message
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(message, "M")
             Connected_Clients[ID][2][1] = -1 #function executed successfully.
             return True
     elif keyword == "see_perm":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18], "E")
             Connected_Clients[ID][2][1] = -2 #Function will not continue
             return True
         admin_list =[]
@@ -543,16 +551,16 @@ def process_command(keyword, args, ID):
         toSend += "Members:\n"
         for user in member_list:
             toSend += ("\t" +user+"\n")
-        send_buffer[Connected_Clients[ID][0]] = toSend
+        send_buffer[Connected_Clients[ID][0]] = formatMessage(toSend, "M")
         Connected_Clients[ID][2][1] = -1 # Function Completed Successfully.
         return True
     elif keyword == "see_room":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18], "E")
             Connected_Clients[ID][2][1] = -2 #Function will not continue
             return True
         toSend = ""
@@ -566,12 +574,12 @@ def process_command(keyword, args, ID):
             tabCount += 1
             if tabCount == 3:
                 toSend += "\n"
-        send_buffer[Connected_Clients[ID][0]] = toSend
+        send_buffer[Connected_Clients[ID][0]] = formatMessage(toSend, "M")
         Connected_Clients[ID][2][1] = -1 # Function Completed Successfully.
         return True
     elif keyword == "whisper":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[4]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[4], "M")
             Connected_Clients[ID][2][1] = control
             return False
         user_cache[ID]["TARGET"] = None
@@ -580,32 +588,32 @@ def process_command(keyword, args, ID):
                 user_cache[ID]["TARGET"] = sock_id
                 break
         if not user_cache[ID]["TARGET"]:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[8], "E")
             Connected_Clients[ID][2][1] = -2 #function will not continue
             return True
         message = Server_Messages[27] + args[0] + Server_Messages[28]
-        send_buffer[Connected_Clients[ID][0]] = message
+        send_buffer[Connected_Clients[ID][0]] = formatMessage(message, "M")
         Connected_Clients[ID][2][1] = -1 #Executed Successfully.
         return True
     elif keyword == "broadcast":
         try:
             del user_cache[ID]["TARGET"]
         except KeyError:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[26]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[26], "E")
             Connected_Clients[ID][2][1] = -1 #Executed Successfully
             return True
         else:
             message = Server_Messages[29] + Server_Messages[28]
-            send_buffer[Connected_Clients[ID][0]] = message
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(message, "M")
             Connected_Clients[ID][2][1] = -1 #Executed Successfully
             return True
     elif keyword == "see_active":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18], "E")
             Connected_Clients[ID][2][1] = -2 #Function will not continue
             return True
         tempStr = ""
@@ -621,7 +629,7 @@ def process_command(keyword, args, ID):
                         tabCount = 0
             except IndexError: #inclient is Server and is not in any rooms
                 pass
-        send_buffer[Connected_Clients[ID][0]] = tempStr
+        send_buffer[Connected_Clients[ID][0]] = formatMessage(tempStr, "M")
         Connected_Clients[ID][2][1] = control
         return True
     elif keyword == "invite":
@@ -635,19 +643,19 @@ def process_command(keyword, args, ID):
             user_cache[ID]["ROOM"] = ""
         if len(args) == 0:
             Connected_Clients[ID][2][1] = control
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[32]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[32], "M")
             return False
         if len(args) == 1 and user_cache[ID]["INVITE"]:
             if args[0] in Rooms:
                 user_cache[ID]["ROOM"] = args[0]
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
         elif len(args) == 1 and user_cache[ID]["ROOM"]:
             search_results = findClient(args[0])
             if not search_results[0]:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[8], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
             user_cache[ID]["INVITE"] = (args[0], search_results[1])
@@ -662,7 +670,7 @@ def process_command(keyword, args, ID):
                     user_cache[ID]["INVITE"] = (args[0], search_results[1])
                     at_least_1 = True
             if not at_least_1:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[33]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[33], "E")
                 Connected_Clients[ID][2][1] = -2 #Function not continuing
                 del user_cache[ID]["ROOM"], user_cache[ID]["INVITE"]
         if len(args) > 1:
@@ -680,25 +688,26 @@ def process_command(keyword, args, ID):
             if Rooms[inv_room] in Connected_Clients[inv_ID][3]:
                 del user_cache[ID]["ROOM"], user_cache[ID]["INVITE"]
                 Connected_Clients[ID][2][1] = -2 # function not continuing
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[31]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[31], "E")
                 return True
             if not Connected_Clients[inv_ID][2][0]:
                 del user_cache[ID]["ROOM"], user_cache[ID]["INVITE"]
                 Connected_Clients[ID][2][1] = -2 #not continuing
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[34]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[34], "E")
                 return True
             if Connected_Clients[inv_ID][2][1] >0:
                 # Invitee is doing a command. Wait to send request
                 Connected_Clients[ID][2][1] = control
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[35]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[35], "M")
                 user_cache[ID]["RETRY"] = True
                 return False
             else:
                 inviteMessage = Connected_Clients[ID][1] + Server_Messages[36] \
                             + inv_room + "\n" + Server_Messages[37]
                 senderMessage = Server_Messages[38] + inv_name + Server_Messages[28]
-                send_buffer[Connected_Clients[inv_ID][0]] = inviteMessage
-                send_buffer[Connected_Clients[ID][0]] =senderMessage
+                send_buffer[Connected_Clients[inv_ID][0]] = formatMessage(inviteMessage, "Q",
+                                                                          ["Accept", "Decline"])
+                send_buffer[Connected_Clients[ID][0]] =formatMessage(senderMessage, "M")
                 Connected_Clients[ID][2][1] = -1 #FUnction done successfully
                 Connected_Clients[inv_ID][2][1] = str_to_int["join"]
                 try:
@@ -710,12 +719,12 @@ def process_command(keyword, args, ID):
                 return True
         elif not user_cache[ID]["ROOM"]:
             log.debug("IN THE NO ROOM PART")
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[43]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[43], "M")
             Connected_Clients[ID][2][1] = control
             return False
         elif not user_cache[ID]["INVITE"]:
             log.debug("INT THE NOT INVITE PART")
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[44]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[3], "M")
             Connected_Clients[ID][2][1] = control
             return False
     elif keyword == "leave":
@@ -724,14 +733,14 @@ def process_command(keyword, args, ID):
         except KeyError:
             user_cache[ID]["LEAVE"] = ""
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[21]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
             Connected_Clients[ID][2][1] = control
             return False
         if user_cache[ID]["LEAVE"]:
             #args[0] is a the new owner.
             new_owner = findClient(args[0])
             if not new_owner[0]:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[8], "E")
                 Connected_Clients[ID][2][1] = -2 #Not continuing
                 return True
             user_cache[new_owner[1]]["OFFER"] = (user_cache[ID]["LEAVE"],
@@ -739,17 +748,17 @@ def process_command(keyword, args, ID):
             if Connected_Clients[new_owner[1]][2][1] < 0:
                 Connected_Clients[new_owner[1]][2][1] = str_to_int["make_owner"]
                 Connected_Clients[ID][2][1] = -1 #Done Correctly
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[49] +\
-                                                        Server_Messages[28]
+                off_message = Server_Messages[48] + Server_Messages[28]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(off_message, "M")
                 return True
             else: #User busy Wait to send offer
                 Connected_Clients[ID][2][1] = control
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[35]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[35], "M")
                 user_cache[ID]["RETRY"] = True
                 return False
         else:
             if not args[0] in Rooms:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18], "M")
                 Connected_Clients[ID][2][1] = -2 #Function will not continue
                 return True
             CC_room_index = Connected_Clients[ID][3].index(Rooms[args[0]])
@@ -758,12 +767,12 @@ def process_command(keyword, args, ID):
                 Rooms[args[0]].deleteRoom(Connected_Clients[ID][1])
                 del Rooms[args[0]]
                 Connected_Clients[ID][3].pop(CC_room_index)
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[45]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[45], "M")
                 Connected_Clients[ID][2][1] = -1 #Function success
                 return True
             if Connected_Clients[ID][1] == Rooms[args[0]].owner:
                 #Select a new owner
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[46]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[46], "M")
                 Connected_Clients[ID][2][1] = control
                 user_cache[ID]["LEAVE"] = args[0]
                 return False
@@ -775,12 +784,12 @@ def process_command(keyword, args, ID):
             try:
                 Rooms[args[0]].deleteMember(Connected_Clients[ID][1], Connected_Clients[ID][1])
             except ValueError: #user is not in the room
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[19]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[19], "E")
                 Connected_Clients[ID][2][1] = -2 #not continuing
                 return True
             else:
                 Connected_Clients[ID][3].pop(CC_room_index)
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[53]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[53], "M")
                 Connected_Clients[ID][2][1] = -1 #Function success
                 return True
     elif keyword == "make_owner":
@@ -791,7 +800,7 @@ def process_command(keyword, args, ID):
         else: #Someone has offered to make him owner of a room
             requester = findClient(user_cache[ID]["OFFER"][1])
             if len(args) == 0:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[11], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
             if args[0] == "y":  # user will be new owner
@@ -800,8 +809,9 @@ def process_command(keyword, args, ID):
                     Rooms[target_room].setOwner(Connected_Clients[ID][1],
                                                  user_cache[ID]["OFFER"][1])
                 except PermissionError:  # Requester is not current owner.
-                    send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[40]
-                    send_buffer[Connected_Clients[ID][0]] = user_cache[ID]["OFFER"][1] + Server_Messages[39]
+                    send_buffer[Connected_Clients[requester[1]][0]] = formatMessage(Server_Messages[40], "E")
+                    perm_error = user_cache[ID]["OFFER"][1] + Server_Messages[39]
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(perm_error, "E")
                     Connected_Clients[ID][2][1] = -2  # Function will not continue executing.
                     del user_cache[ID]["OFFER"]
                     return True
@@ -809,18 +819,19 @@ def process_command(keyword, args, ID):
                     send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[49]
                     Connected_Clients[ID][3].append(Rooms[target_room])
                     message = Server_Messages[51] + " " + target_room
-                    send_buffer[Connected_Clients[ID][0]] = message
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(message, "M")
                     Connected_Clients[ID][2][1] = -1  # function executed successfully.
                     del user_cache[ID]["OFFER"]
                     return True
             elif args[0] == "n":
-                send_buffer[Connected_Clients[requester[1]][0]] = Server_Messages[50]
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[50]
+                dec_message = formatMessage(Server_Messages[50], "M")
+                send_buffer[Connected_Clients[requester[1]][0]] = dec_message
+                send_buffer[Connected_Clients[ID][0]] =dec_message
                 Connected_Clients[ID][2][1] = -1
                 del user_cache[ID]["OFFER"]
                 return True
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[11], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
         try:
@@ -833,19 +844,19 @@ def process_command(keyword, args, ID):
             user_cache[ID]["ROOM"] = ""
         if len(args) == 0:
             Connected_Clients[ID][2][1] = control
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[32]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[32], "M")
             return False
         if len(args) == 1 and user_cache[ID]["BUYER"]:
             if args[0] in Rooms:
                 user_cache[ID]["ROOM"] = args[0]
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[18]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[18], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
         elif len(args) == 1 and user_cache[ID]["ROOM"]:
             search_results = findClient(args[0])
             if not search_results[0]:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[8]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[8], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
             user_cache[ID]["BUYER"] = (args[0], search_results[1])
@@ -860,7 +871,7 @@ def process_command(keyword, args, ID):
                     user_cache[ID]["BUYER"] = (args[0], search_results[1])
                     at_least_1 = True
             if not at_least_1:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[33]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[33], "E")
                 Connected_Clients[ID][2][1] = -2  # Function not continuing
                 del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
         if len(args) > 1:
@@ -878,20 +889,21 @@ def process_command(keyword, args, ID):
             if not Connected_Clients[inv_ID][2][0]:
                 del user_cache[ID]["ROOM"], user_cache[ID]["BUYER"]
                 Connected_Clients[ID][2][1] = -2  # not continuing
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[34]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[34], "E")
                 return True
             if Connected_Clients[inv_ID][2][1] > 0:
                 # Invitee is doing a command. Wait to send request
                 Connected_Clients[ID][2][1] = control
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[35]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[35], "M")
                 user_cache[ID]["RETRY"] = True
                 return False
             else:
                 inviteMessage = Connected_Clients[ID][1] + Server_Messages[47] \
                                 + inv_room + "\n" + Server_Messages[37]
                 senderMessage = Server_Messages[48] + inv_name + Server_Messages[28]
-                send_buffer[Connected_Clients[inv_ID][0]] = inviteMessage
-                send_buffer[Connected_Clients[ID][0]] = senderMessage
+                send_buffer[Connected_Clients[inv_ID][0]] = formatMessage(inviteMessage, "Q",
+                                                                          ["Accept", "Decline"])
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(senderMessage, "M")
                 Connected_Clients[ID][2][1] = -1  # FUnction done successfully
                 Connected_Clients[inv_ID][2][1] = control
                 try:
@@ -903,12 +915,16 @@ def process_command(keyword, args, ID):
                 return True
         elif not user_cache[ID]["ROOM"]:
             log.debug("IN THE NO ROOM PART")
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[43]
+            list_of_rooms = []
+            for room in Connected_Clients[ID][3]:
+                list_of_rooms.append(room.roomName)
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[43], "Q",
+                                                                  list_of_rooms)
             Connected_Clients[ID][2][1] = control
             return False
         elif not user_cache[ID]["BUYER"]:
             log.debug("INT THE NOT BUYER PART")
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[44]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[3], "M")
             Connected_Clients[ID][2][1] = control
             return False
     elif keyword == "log_out":
@@ -918,9 +934,8 @@ def process_command(keyword, args, ID):
         Connected_Clients[ID][2] = [False, 1] #Not authenticated
         Connected_Clients[ID][3] = [] #Reset active rooms
         recv_buffer[ID] = None
-        sendStr = Server_Messages[52] +"\n\n" + Server_Messages[1]\
-                  + "\n"+ Server_Messages[2]
-        send_buffer[Connected_Clients[ID][0]] = sendStr
+        send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[52], "Q",
+                                                              ["Log in", "Create New User"])
         del user_cache[ID]
         return True
     elif keyword == "delete_account":
@@ -928,7 +943,9 @@ def process_command(keyword, args, ID):
         try:
             log.debug(user_cache[ID]["DELETE"])
         except KeyError:
-            send_buffer[Connected_Clients[ID][0]] = Server_Messages[55] + Server_Messages[56]
+            confirm_message = Server_Messages[55] + Server_Messages[56]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(confirm_message, "Q",
+                                                                  ["Yes", "No"])
             Connected_Clients[ID][2][1] = control
             user_cache[ID]["DELETE"] = True
         else:
@@ -937,7 +954,7 @@ def process_command(keyword, args, ID):
             for room in local_copy:
                 process_command("leave", [room.roomName], ID)
                 if Connected_Clients[ID][2][1] == -2:
-                    send_buffer[Connected_Clients[ID][0]] = Server_Messages[59]
+                    send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[59], "E")
                     return True
             # args[0] should be y/n
             if args[0] == 'y':
@@ -955,19 +972,18 @@ def process_command(keyword, args, ID):
                 miscellaneous.replaceLine("users.txt", lineNumber + 1, "")
             elif args[0] == 'n':
                 del user_cache[ID]["DELETE"], user_cache[ID]["MASS_DELETE"]
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[57]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[57], "M")
                 Connected_Clients[ID][2][1] = -1  # Function Done successfully
                 return True
             else:
-                send_buffer[Connected_Clients[ID][0]] = Server_Messages[11]
+                send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[11], "E")
                 Connected_Clients[ID][2][1] = control
                 return False
             Connected_Clients[ID][1] = ""  # Reset Username
             Connected_Clients[ID][2] = [False, 1]  # Not authenticated
             recv_buffer[ID] = None
-            sendStr = Server_Messages[52] + "\n\n" + Server_Messages[1] \
-                      + "\n" + Server_Messages[2]
-            send_buffer[Connected_Clients[ID][0]] = sendStr
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[52], "Q",
+                                                                  ["Log in", "Create New User"])
             del user_cache[ID]
             return True
 
@@ -978,6 +994,40 @@ def findClient(name):
         if CC[1] == name:
             return True, client
     return False, None
+
+def formatMessage(text, send_type, additional=[]):
+    # formats the message for the client to understand
+    # does not encode to ascii or add the header.
+    # That ^ is done in main right before sending.
+    formatted_string = send_type
+    if send_type == "Q":
+        options =""
+        for option in additional:
+            options+= option + ":"
+        options += ":"
+        formatted_string += options
+    elif send_type == "C":
+        for i in range(0, 2):
+            if len(additional[i]) != 6:
+                raise ValueError
+            formatted_string+= additional[i]
+    elif send_type == "W":
+        if len(additional[0]) != 6:
+            raise ValueError
+        formatted_string += additional[0]
+    elif send_type == "M" or send_type == "E":
+        pass
+    else:
+        raise ValueError
+    formatted_string += text
+    return formatted_string
+
+def getColor(entity): #Terrible variable name; find another.
+    # Temporary
+    # Use color.txt to get the appropriate color
+    # that the user or room has set.
+    # entity = Room or Username
+    return "FFFFFF"
 
 if __name__ == "__main__":
     logName = "Logs\\"+strftime("%d%m%Y%H%M%S") + ".log"
