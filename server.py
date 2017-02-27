@@ -499,7 +499,9 @@ def process_command(keyword, args, ID):
                 return False
 
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
+            room_options = [r.roomName for r in Connected_Clients[ID][3]]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "Q",
+                                                                  room_options)
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
@@ -524,7 +526,9 @@ def process_command(keyword, args, ID):
             return True
     elif keyword == "see_perm":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
+            room_options = [r.roomName for r in Connected_Clients[ID][3]]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "Q",
+                                                                  room_options)
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
@@ -556,7 +560,9 @@ def process_command(keyword, args, ID):
         return True
     elif keyword == "see_room":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
+            room_options = [r.roomName for r in Connected_Clients[ID][3]]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "Q",
+                                                                  room_options)
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
@@ -609,7 +615,9 @@ def process_command(keyword, args, ID):
             return True
     elif keyword == "see_active":
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
+            room_options = [r.roomName for r in Connected_Clients[ID][3]]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "Q",
+                                                                  room_options)
             Connected_Clients[ID][2][1] = control
             return False
         if not args[0] in Rooms:
@@ -719,7 +727,9 @@ def process_command(keyword, args, ID):
                 return True
         elif not user_cache[ID]["ROOM"]:
             log.debug("IN THE NO ROOM PART")
-            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[43], "M")
+            room_options = [r.roomName for r in Connected_Clients[ID][3]]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "Q",
+                                                                  room_options)
             Connected_Clients[ID][2][1] = control
             return False
         elif not user_cache[ID]["INVITE"]:
@@ -733,7 +743,9 @@ def process_command(keyword, args, ID):
         except KeyError:
             user_cache[ID]["LEAVE"] = ""
         if len(args) == 0:
-            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "M")
+            room_options = [r.roomName for r in Connected_Clients[ID][3]]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "Q",
+                                                                  room_options)
             Connected_Clients[ID][2][1] = control
             return False
         if user_cache[ID]["LEAVE"]:
@@ -915,11 +927,9 @@ def process_command(keyword, args, ID):
                 return True
         elif not user_cache[ID]["ROOM"]:
             log.debug("IN THE NO ROOM PART")
-            list_of_rooms = []
-            for room in Connected_Clients[ID][3]:
-                list_of_rooms.append(room.roomName)
-            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[43], "Q",
-                                                                  list_of_rooms)
+            room_options = [r.roomName for r in Connected_Clients[ID][3]]
+            send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[21], "Q",
+                                                                  room_options)
             Connected_Clients[ID][2][1] = control
             return False
         elif not user_cache[ID]["BUYER"]:

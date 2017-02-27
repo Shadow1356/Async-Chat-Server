@@ -41,7 +41,7 @@ Inviting
 You do not have High enough privilege.
 Invitation Accepted.
 Invitation Declined.
-Enter a Room Name:
+#####FREE SPACE######[21]
 #####FREE SPACE######[3]
 You are the only one inside the Room. Room left and Deleted.
 Select a new owner:
