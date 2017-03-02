@@ -27,6 +27,7 @@ class ClientGUI(threading.Thread):
         #print("In update output")
         while not self.outQ.empty():
             self.output.insert(END, self.outQ.get(block=False))
+
         self.root.after(500, self.__update_output)
 
     def run(self):
@@ -55,7 +56,7 @@ class ClientGUI(threading.Thread):
         self.root.bind_all("<Button-1>", self.__printxy)
         self.root.bind_all("<Return>", self.EnterAction)
         self.root.protocol("WM_DELETE_WINDOW", self.__signalEnd)
-        self.root.after(1, self.__update_output)
+        self.root.after(500, self.__update_output)
         self.root.mainloop()
 
     def __signalEnd(self):
@@ -64,6 +65,7 @@ class ClientGUI(threading.Thread):
 
     def __printxy(self, event):
         print(event.x, " ", event.y)
+
 
 class Client_Handler(threading.Thread):
     def __init__(self):
@@ -85,11 +87,10 @@ class Client_Handler(threading.Thread):
             if not self.receiver.q.empty():
                 srv_message = self.receiver.q.get(block=False)
                 print("Stuff in receiver's Q")
-                self.client_gui.outQ.put_nowait(srv_message)
+                self.interpret_message(srv_message)
             if not self.client_gui.inQ.empty():
                 toSend = self.client_gui.inQ.get(block = False)
                 self.sender.q.put_nowait(toSend)
-
 
     def connect(self):
         threads = [self.sender, self.receiver, self.client_gui, self]
@@ -98,6 +99,53 @@ class Client_Handler(threading.Thread):
         for thread in threads:
             thread.join()
 
+    def interpret_message(self, message):
+        print("Parsing ", message)
+        if message[0] == "Q":
+            option_str, to_display = message[1:].split("::")
+            option_list = option_str.split(":")
+            self.client_gui.outQ.put_nowait(to_display)
+            popup_query = Popup(option_list, to_display)
+            popup_query.start()
+            popup_query.join()
+            print("AFTER JOIN")
+            while popup_query.return_value is None:
+                pass
+            self.sender.q.put_nowait(str(popup_query.return_value))
+        elif message[0] == "M" or message[0] == "E":
+            return message, "red"
+        elif message[0] == "C":
+            return message, "red"
+        elif message[0] == "W":
+            return message, "red"
+        else:
+            raise ValueError
+
+class Popup(threading.Thread):
+    def __init__(self, options, query):
+        threading.Thread.__init__(self)
+        self.top = None
+        self.options = options
+        self.query = query
+        self.Buttons = []
+        self.return_value = None
+
+    def run(self):
+        self.top = Toplevel()
+        self.top.title(self.query)
+        self.top.geometry("300x200")
+        for opt in self.options:
+            ID_index = self.options.index(opt)
+            print("ID = ", ID_index)
+            newButton = Button(self.top, text=opt,
+                               command = lambda x = ID_index: self.clickOption(x))
+            self.Buttons.append(newButton)
+        for button in self.Buttons:
+            button.pack()
+
+    def clickOption(self, ID): # sets return value and closes window.
+        self.return_value = ID
+        self.top.destroy()
 
 if __name__ == "__main__":
     Window = Client_Handler()
