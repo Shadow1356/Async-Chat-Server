@@ -2,6 +2,7 @@ from tkinter import *
 import client2
 import queue
 import threading
+from ScrollingLabel2 import ScrollingLabel
 
 class ClientGUI(threading.Thread):
     def __init__(self):
@@ -26,7 +27,7 @@ class ClientGUI(threading.Thread):
     def __update_output(self):
         #print("In update output")
         while not self.outQ.empty():
-            self.output.insert(END, self.outQ.get(block=False))
+            self.output.add(self.outQ.get(block=False))
 
         self.root.after(500, self.__update_output)
 
@@ -36,9 +37,8 @@ class ClientGUI(threading.Thread):
         self.root.resizable(False, False)
         self.root.wm_title("Chat Client")
         # Output History
-        self.output = Listbox(self.root, height=40, width=60)
+        self.output = ScrollingLabel(self.root, 15,4, 50, 0, 0)
         print("THEre's a box")
-        self.output.place(x=0, y=0)
         # Command Box
         self.input = Entry(self.root, width=50)
         self.input.place(x=375, y=600)
@@ -113,11 +113,14 @@ class Client_Handler(threading.Thread):
                 pass
             self.sender.q.put_nowait(str(popup_query.return_value))
         elif message[0] == "M" or message[0] == "E":
-            return message, "red"
+            self.client_gui.outQ.put_nowait(message[1:])
         elif message[0] == "C":
-            return message, "red"
+            bg = message[1:7]
+            fg = message[7:13]
+            self.client_gui.outQ.put_nowait(message[13:])
         elif message[0] == "W":
-            return message, "red"
+            color = message[1:7]
+            self.client_gui.outQ.put_nowait(message[7:])
         else:
             raise ValueError
 
