@@ -3,6 +3,8 @@ import client2
 import queue
 import threading
 from ScrollingLabel2 import ScrollingLabel
+from miscellaneous import code_to_color, colors
+from random import randint
 
 class ClientGUI(threading.Thread):
     def __init__(self):
@@ -27,7 +29,8 @@ class ClientGUI(threading.Thread):
     def __update_output(self):
         #print("In update output")
         while not self.outQ.empty():
-            self.output.add(self.outQ.get(block=False))
+            outQ_list = self.outQ.get(block=False)
+            self.output.add(outQ_list[0], outQ_list[1], outQ_list[2])
 
         self.root.after(500, self.__update_output)
 
@@ -73,6 +76,8 @@ class Client_Handler(threading.Thread):
         self.sender = client2.Sender()
         self.receiver = client2.Receiver()
         self.client_gui = ClientGUI()
+        self.Room_to_Color = {}
+        self.User_to_Color = {}
 
     def run(self):
         while True:
@@ -104,7 +109,7 @@ class Client_Handler(threading.Thread):
         if message[0] == "Q":
             option_str, to_display = message[1:].split("::")
             option_list = option_str.split(":")
-            self.client_gui.outQ.put_nowait(to_display)
+            self.client_gui.outQ.put_nowait((to_display, "", ""))
             popup_query = Popup(option_list, to_display)
             popup_query.start()
             popup_query.join()
@@ -112,17 +117,30 @@ class Client_Handler(threading.Thread):
             while popup_query.return_value is None:
                 pass
             self.sender.q.put_nowait(str(popup_query.return_value))
-        elif message[0] == "M" or message[0] == "E":
-            self.client_gui.outQ.put_nowait(message[1:])
+        elif message[0] == "M":
+            self.client_gui.outQ.put_nowait((message[1:], "black", "white"))
+        elif message[0] == "E":
+            self.client_gui.outQ.put_nowait((message[1:], "red", "white"))
         elif message[0] == "C":
-            bg = message[1:7]
-            fg = message[7:13]
-            self.client_gui.outQ.put_nowait(message[13:])
+            room, user, _ = message[1:].split(":")
+            bg = self.getColor(room, True)
+            fg = self.getColor(user, False)
+            self.client_gui.outQ.put_nowait((message[1:], fg, bg))
         elif message[0] == "W":
-            color = message[1:7]
-            self.client_gui.outQ.put_nowait(message[7:])
+            # color = message[1:4]
+            self.client_gui.outQ.put_nowait((message[1:], "", code_to_color["blu"]))
         else:
             raise ValueError
+
+    def getColor(self, entity, isRoom):
+        #might sub-class UserDict and overide __missing__ instead.
+        if isRoom:
+            if not entity in self.Room_to_Color:
+                self.Room_to_Color[entity] = colors[randint(0, len(colors))]
+            return self.Room_to_Color[entity]
+        if not entity in self.User_to_Color:
+            self.User_to_Color[entity] = colors[randint(0, len(colors)-1)]
+            return self.User_to_Color[entity]
 
 class Popup(threading.Thread):
     def __init__(self, options, query):

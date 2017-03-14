@@ -301,8 +301,7 @@ def loadSendBuffer(ID):
                            + Connected_Clients[Target][1] + ": " \
                            + contentArray[0]
                 if Connected_Clients[Target][2][0]: #check if user validated
-                    color = getColor(Connected_Clients[ID][1])
-                    toWhisper = formatMessage(fullText, "W", [color])
+                    toWhisper = formatMessage(fullText, "W")
                     send_buffer[Connected_Clients[Target][0]] = toWhisper
                     send_buffer[Connected_Clients[ID][0]] = toWhisper
                 else:
@@ -315,8 +314,7 @@ def loadSendBuffer(ID):
                     send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[19], "E")
                 else:
                     text = contentArray[1] + ":" + Connected_Clients[ID][1] + ": " + contentArray[0]
-                    add_args = [getColor(Connected_Clients[ID][1]), getColor(contentArray[1])]
-                    fullText = formatMessage(text, "C", add_args)
+                    fullText = formatMessage(text, "C")
                     for inClient in Connected_Clients:
                         # check if user is validated and in the room, before sending output.
                         # Remove second check? Checked Above?
@@ -1010,34 +1008,17 @@ def formatMessage(text, send_type, additional=[]):
     # does not encode to ascii or add the header.
     # That ^ is done in main right before sending.
     formatted_string = send_type
+    valid_types = ("Q", "C", "W", "M", "E")
+    if not send_type in valid_types:
+        raise ValueError
     if send_type == "Q":
         options =""
         for option in additional:
             options+= option + ":"
         options += ":"
         formatted_string += options
-    elif send_type == "C":
-        for i in range(0, 2):
-            if len(additional[i]) != 6:
-                raise ValueError
-            formatted_string+= additional[i]
-    elif send_type == "W":
-        if len(additional[0]) != 6:
-            raise ValueError
-        formatted_string += additional[0]
-    elif send_type == "M" or send_type == "E":
-        pass
-    else:
-        raise ValueError
     formatted_string += text
     return formatted_string
-
-def getColor(entity): #Terrible variable name; find another.
-    # Temporary
-    # Use color.txt to get the appropriate color
-    # that the user or room has set.
-    # entity = Room or Username
-    return "FFFFFF"
 
 if __name__ == "__main__":
     logName = "Logs\\"+strftime("%d%m%Y%H%M%S") + ".log"

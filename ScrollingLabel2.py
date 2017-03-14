@@ -57,19 +57,23 @@ class ScrollingLabel:
                 if master_index <0:
                     master_index = len(self._master) -1
                 continue
-            self._labels[index][1].set(self._master[master_index])
+            self._labels[index][1].set(self._master[master_index][0])
+            if self._master[master_index][1]:
+                self._labels[index][0].configure(fg=self._master[master_index][1])
+            if self._master[master_index][2]:
+                self._labels[index][0].configure(bg=self._master[master_index][2])
             master_index -= 1
             if master_index < 0:
                 master_index = len(self._master) - 1
 
-    def add(self, text, fg=None, bg=None): #implement colors later
+    def add(self, text, fg="", bg=""): #implement colors later
         for i in range(self._size):
             if not self._master[i]:
-                self._master[i] = text
+                self._master[i] = (text, fg, bg)
                 self._current_bottom = i
                 break
         else:
-            self._master.append(text)
+            self._master.append((text, fg, bg))
             self._current_bottom += 1
 
        # print("Master = ", self._master)
