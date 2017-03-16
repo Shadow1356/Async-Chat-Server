@@ -198,6 +198,7 @@ def loadSendBuffer(ID):
             found = False
             for l in lines:
                 found = name == l.partition(":")[0]
+                log.debug("Name is taken.")
                 if found: break
             del lines
             if found:
@@ -205,8 +206,9 @@ def loadSendBuffer(ID):
             else:
                 Connected_Clients[ID][2][1] = 5
                 send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[13], "M")
+                to_insert = "\n" + name + ":"
                 with open("users.txt", 'a') as file:
-                    file.write("\n" + name)
+                    file.write(to_insert)
                     file.close()
                 Connected_Clients[ID][1] = name
         elif Connected_Clients[ID][2][1] == 4: # get existing password
@@ -233,8 +235,9 @@ def loadSendBuffer(ID):
                 send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[10], "E") #Add counter later for limited number of attempts.
         elif Connected_Clients[ID][2][1] == 5: #Create a new password.
             password = contentArray[0]
-            formatPassword = Connected_Clients[ID][1] + ":" + password
-            miscellaneous.findAndReplace("users.txt", formatPassword, Connected_Clients[ID][1])
+            name_in_file = Connected_Clients[ID][1] + ":"
+            formatPassword = name_in_file + password
+            miscellaneous.findAndReplace("users.txt", formatPassword, name_in_file) #Replace Line better?
             Connected_Clients[ID][2][1] = 6
             send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[6], "M")
         elif Connected_Clients[ID][2][1] == 6: #Confirm the new password
