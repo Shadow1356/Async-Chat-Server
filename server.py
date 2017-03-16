@@ -945,6 +945,7 @@ def process_command(keyword, args, ID):
         send_buffer[Connected_Clients[ID][0]] = formatMessage(Server_Messages[52], "Q",
                                                               ["Log in", "Create New User"])
         del user_cache[ID]
+        user_cache[ID] = {}
         return True
     elif keyword == "delete_account":
         #Confirm the the user really wants this.

@@ -136,7 +136,7 @@ class Client_Handler(threading.Thread):
         #might sub-class UserDict and overide __missing__ instead.
         if isRoom:
             if not entity in self.Room_to_Color:
-                self.Room_to_Color[entity] = colors[randint(0, len(colors))]
+                self.Room_to_Color[entity] = colors[randint(0, len(colors)-1)]
             return self.Room_to_Color[entity]
         if not entity in self.User_to_Color:
             self.User_to_Color[entity] = colors[randint(0, len(colors)-1)]
