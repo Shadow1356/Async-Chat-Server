@@ -1,6 +1,6 @@
 Welcome
-[0] Login using Existing Account
-[1] Create New Account
+#####FREE SPACE#####
+#####FREE SPACE#####
 Enter Username:
 Enter a Username:
 Enter Password:
@@ -35,14 +35,14 @@ Not a Recognized Room or Username.
 User Not Validated.
 User Not Available. Waiting to Send Request.
  is inviting you to room:
-Would you like to accept?(y/n)
+Would you like to accept?
 Inviting
  does not have high enough privilege.
 You do not have High enough privilege.
 Invitation Accepted.
 Invitation Declined.
-Enter a Room Name:
-Enter a Username:
+#####FREE SPACE######[21]
+#####FREE SPACE######[3]
 You are the only one inside the Room. Room left and Deleted.
 Select a new owner:
  would like to make you owner of:
@@ -53,3 +53,8 @@ You are the owner of:
 Logged out.
 Room Left.
 User already logged in.
+Are You Sure You Want to Delete Your Account?
+This is Permanent.
+You Still Exist.
+Attempting to Leave
+An Error occurred. Please Try again.

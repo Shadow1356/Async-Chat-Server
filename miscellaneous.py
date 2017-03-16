@@ -67,6 +67,19 @@ def cleanNewLines(path): #gets rid of empty lines in path. (side effect of these
         writeFile.write(elem)
     writeFile.close()
 
+code_to_color = {"red":"red",
+                 "blu": "blue",
+                 "gre": "green",
+                 "yel": "yellow",
+                 "blk": "black",
+                 "wht": "white",
+                 "pup": "purple",
+                 "pnk": "pink",
+                 "org": "orange"}
+
+colors = ("red", "blue", "green", "yellow", "black", "purple", "pink", "orange")
+
+
 if __name__ == "__main__":
     # replaceLine("Messages.txt", 1, "Test")
     # findAndReplace("Messages.txt", "Test", "Welcome")
