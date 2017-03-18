@@ -123,7 +123,7 @@ def noneFilter(array):
 
 def createListenSocket():
     raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     raw_socket.setblocking(0)
     raw_socket.bind(('', LISTEN_PORT))
     raw_socket.listen(5)

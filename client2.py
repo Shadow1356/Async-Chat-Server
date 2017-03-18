@@ -52,6 +52,8 @@ class Sender(threading.Thread):
             self.IP, self.port, _, self.formatCharacter = file.readlines()
             file.close()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET,
+                                   socket.SO_REUSEADDR, 1)
         self.sock.connect((self.IP, int(self.port)))
         self.sock.setblocking(False)
         self.sock.settimeout(0.0)
